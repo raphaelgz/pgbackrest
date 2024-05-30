@@ -21,6 +21,7 @@ FN_EXTERN void storageRemotePathCreateProtocol(PackRead *param, ProtocolServer *
 FN_EXTERN void storageRemotePathRemoveProtocol(PackRead *param, ProtocolServer *server);
 FN_EXTERN void storageRemotePathSyncProtocol(PackRead *param, ProtocolServer *server);
 FN_EXTERN void storageRemoteRemoveProtocol(PackRead *param, ProtocolServer *server);
+FN_EXTERN void storageRemoteResolvePathExpressionProtocol(PackRead *param, ProtocolServer *server);
 
 /***********************************************************************************************************************************
 Protocol commands for ProtocolServerHandler arrays passed to protocolServerProcess()
@@ -35,6 +36,7 @@ Protocol commands for ProtocolServerHandler arrays passed to protocolServerProce
 #define PROTOCOL_COMMAND_STORAGE_REMOVE                             STRID5("s-r", 0x4b730)
 #define PROTOCOL_COMMAND_STORAGE_PATH_REMOVE                        STRID5("s-pr", 0x943730)
 #define PROTOCOL_COMMAND_STORAGE_PATH_SYNC                          STRID5("s-ps", 0x9c3730)
+#define PROTOCOL_COMMAND_STORAGE_RESOLVE_PATH_EXPRESSION            STRID5("s-rpe", 0x584b730)
 
 #define PROTOCOL_SERVER_HANDLER_STORAGE_REMOTE_LIST                                                                                \
     {.command = PROTOCOL_COMMAND_STORAGE_FEATURE, .handler = storageRemoteFeatureProtocol},                                        \
@@ -46,7 +48,8 @@ Protocol commands for ProtocolServerHandler arrays passed to protocolServerProce
     {.command = PROTOCOL_COMMAND_STORAGE_PATH_CREATE, .handler = storageRemotePathCreateProtocol},                                 \
     {.command = PROTOCOL_COMMAND_STORAGE_PATH_REMOVE, .handler = storageRemotePathRemoveProtocol},                                 \
     {.command = PROTOCOL_COMMAND_STORAGE_PATH_SYNC, .handler = storageRemotePathSyncProtocol},                                     \
-    {.command = PROTOCOL_COMMAND_STORAGE_REMOVE, .handler = storageRemoteRemoveProtocol},
+    {.command = PROTOCOL_COMMAND_STORAGE_REMOVE, .handler = storageRemoteRemoveProtocol},                                          \
+    {.command = PROTOCOL_COMMAND_STORAGE_RESOLVE_PATH_EXPRESSION, .handler = storageRemoteResolvePathExpressionProtocol},
 
 /***********************************************************************************************************************************
 Filters that may be passed to a remote

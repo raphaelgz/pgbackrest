@@ -1132,7 +1132,7 @@ static const StorageInterface storageInterfaceGcs =
 
 FN_EXTERN Storage *
 storageGcsNew(
-    const Path *const path, const bool write, StoragePathExpressionCallback pathExpressionFunction, const String *const bucket,
+    const Path *const path, const bool write, const String *const bucket,
     const StorageGcsKeyType keyType, const String *const key, const size_t chunkSize, const KeyValue *const tag,
     const String *const endpoint, const TimeMSec timeout, const bool verifyPeer, const String *const caFile,
     const String *const caPath)
@@ -1140,7 +1140,6 @@ storageGcsNew(
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(PATH, path);
         FUNCTION_LOG_PARAM(BOOL, write);
-        FUNCTION_LOG_PARAM(FUNCTIONP, pathExpressionFunction);
         FUNCTION_LOG_PARAM(STRING, bucket);
         FUNCTION_LOG_PARAM(STRING_ID, keyType);
         FUNCTION_TEST_PARAM(STRING, key);
@@ -1258,5 +1257,5 @@ storageGcsNew(
     }
     OBJ_NEW_END();
 
-    FUNCTION_LOG_RETURN(STORAGE, storageNew(STORAGE_GCS_TYPE, path, 0, 0, write, pathExpressionFunction, this, this->interface));
+    FUNCTION_LOG_RETURN(STORAGE, storageNew(STORAGE_GCS_TYPE, path, 0, 0, write, this, this->interface));
 }

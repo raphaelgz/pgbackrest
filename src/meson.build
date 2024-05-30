@@ -267,6 +267,9 @@ src_pgbackrest = [
     'storage/sftp/read.c',
     'storage/sftp/storage.c',
     'storage/sftp/write.c',
+    'storage/vfs/mountPoint.c',
+    'storage/vfs/mountPointList.c',
+    'storage/vfs/storage.c',
     'main.c',
 ]
 

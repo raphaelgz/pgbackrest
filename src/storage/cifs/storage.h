@@ -14,7 +14,6 @@ Storage type
 /***********************************************************************************************************************************
 Constructors
 ***********************************************************************************************************************************/
-FN_EXTERN Storage *storageCifsNew(
-    const Path *path, mode_t modeFile, mode_t modePath, bool write, StoragePathExpressionCallback pathExpressionFunction);
+FN_EXTERN Storage *storageCifsNew(const Path *path, mode_t modeFile, mode_t modePath, bool write);
 
 #endif

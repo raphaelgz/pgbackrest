@@ -55,11 +55,6 @@ Error messages
 #define STORAGE_ERROR_WRITE_SYNC                                    "unable to sync file '%s' after write"
 
 /***********************************************************************************************************************************
-Path expression callback function type - used to modify paths based on expressions enclosed in <>
-***********************************************************************************************************************************/
-typedef Path *StoragePathExpressionCallback(const Path *path);
-
-/***********************************************************************************************************************************
 Storage info callback function type - used to return storage info
 ***********************************************************************************************************************************/
 typedef void (*StorageListCallback)(void *callbackData, const StorageInfo *info);
@@ -265,12 +260,24 @@ typedef void StorageInterfacePathSync(void *thisVoid, const Path *path, StorageI
 #define storageInterfacePathSyncP(thisVoid, path, ...)                                                                             \
     STORAGE_COMMON_INTERFACE(thisVoid).pathSync(thisVoid, path, (StorageInterfacePathSyncParam){VAR_PARAM_INIT, __VA_ARGS__})
 
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Resolve a path expression
+typedef struct StorageInterfaceResolvePathExpressionParam
+{
+    VAR_PARAM_HEADER;
+} StorageInterfaceResolvePathExpressionParam;
+
+typedef Path *StorageInterfaceResolvePathExpression(void *thisVoid, const Path *pathExp, StorageInterfaceResolvePathExpressionParam param);
+
+#define storageInterfaceResolvePathExpressionP(thisVoid, pathExp, ...)                                                         \
+    STORAGE_COMMON_INTERFACE(thisVoid).resolvePathExpression(thisVoid, pathExp, (StorageInterfaceResolvePathExpressionParam){VAR_PARAM_INIT, __VA_ARGS__})
+
 /***********************************************************************************************************************************
 Storage type and helper function struct
 
 An array of this struct must be passed to storageHelperInit() to enable storage drivers other than built-in Posix.
 ***********************************************************************************************************************************/
-typedef Storage *(*StorageHelperFunction)(unsigned int repoIdx, bool write, StoragePathExpressionCallback pathExpressionCallback);
+typedef Storage *(*StorageHelperFunction)(unsigned int repoIdx, bool write);
 
 typedef struct StorageHelper
 {
@@ -301,6 +308,7 @@ typedef struct StorageInterface
     StorageInterfaceMove *move;
     StorageInterfacePathCreate *pathCreate;
     StorageInterfacePathSync *pathSync;
+    StorageInterfaceResolvePathExpression *resolvePathExpression;
 } StorageInterface;
 
 #define storageNewP(type, path, modeFile, modePath, write, pathExpressionFunction, driver, ...)                                    \
@@ -308,7 +316,7 @@ typedef struct StorageInterface
 
 FN_EXTERN Storage *storageNew(
     StringId type, const Path *path, mode_t modeFile, mode_t modePath, bool write,
-    StoragePathExpressionCallback pathExpressionFunction, void *driver, StorageInterface interface);
+    void *driver, StorageInterface interface);
 
 /***********************************************************************************************************************************
 Common members to include in every storage driver and macros to extract the common elements

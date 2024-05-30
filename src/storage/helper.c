@@ -189,7 +189,7 @@ storagePgGet(const unsigned int pgIdx, const bool write)
     if (!pgIsLocal(pgIdx))
     {
         result = storageRemoteNew(
-            STORAGE_MODE_FILE_DEFAULT, STORAGE_MODE_PATH_DEFAULT, write, NULL,
+            STORAGE_MODE_FILE_DEFAULT, STORAGE_MODE_PATH_DEFAULT, write,
             protocolRemoteGet(protocolStorageTypePg, pgIdx), cfgOptionUInt(cfgOptCompressLevelNetwork));
     }
     // Use Posix storage
@@ -350,7 +350,7 @@ storageRepoGet(const unsigned int repoIdx, const bool write)
     if (!repoIsLocal(repoIdx))
     {
         result = storageRemoteNew(
-            STORAGE_MODE_FILE_DEFAULT, STORAGE_MODE_PATH_DEFAULT, write, storageRepoPathExpression,
+            STORAGE_MODE_FILE_DEFAULT, STORAGE_MODE_PATH_DEFAULT, write,
             protocolRemoteGet(protocolStorageTypeRepo, repoIdx), cfgOptionUInt(cfgOptCompressLevelNetwork));
     }
     // Use local storage
@@ -365,7 +365,7 @@ storageRepoGet(const unsigned int repoIdx, const bool write)
             {
                 if (helper->type == type)
                 {
-                    result = helper->helper(repoIdx, write, storageRepoPathExpression);
+                    result = helper->helper(repoIdx, write);
                     break;
                 }
             }
@@ -377,7 +377,7 @@ storageRepoGet(const unsigned int repoIdx, const bool write)
             CHECK(AssertError, type == STORAGE_POSIX_TYPE, "invalid storage type");
 
             result = storagePosixNewStrP(
-                cfgOptionIdxStr(cfgOptRepoPath, repoIdx), .write = write, .pathExpressionFunction = storageRepoPathExpression);
+                cfgOptionIdxStr(cfgOptRepoPath, repoIdx), .write = write);
         }
     }
 
@@ -508,8 +508,7 @@ storageSpool(void)
 
         MEM_CONTEXT_BEGIN(storageHelper.memContext)
         {
-            storageHelper.storageSpool = storagePosixNewStrP(
-                cfgOptionStr(cfgOptSpoolPath), .pathExpressionFunction = storageSpoolPathExpression);
+            storageHelper.storageSpool = storagePosixNewStrP(cfgOptionStr(cfgOptSpoolPath));
         }
         MEM_CONTEXT_END();
     }
@@ -533,8 +532,7 @@ storageSpoolWrite(void)
 
         MEM_CONTEXT_BEGIN(storageHelper.memContext)
         {
-            storageHelper.storageSpoolWrite = storagePosixNewStrP(
-                cfgOptionStr(cfgOptSpoolPath), .write = true, .pathExpressionFunction = storageSpoolPathExpression);
+            storageHelper.storageSpoolWrite = storagePosixNewStrP(cfgOptionStr(cfgOptSpoolPath), .write = true);
         }
         MEM_CONTEXT_END();
     }

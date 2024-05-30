@@ -26,14 +26,13 @@ struct Storage
     mode_t modeFile;
     mode_t modePath;
     bool write;
-    StoragePathExpressionCallback *pathExpressionFunction;
 };
 
 /**********************************************************************************************************************************/
 FN_EXTERN Storage *
 storageNew(
     const StringId type, const Path *const path, const mode_t modeFile, const mode_t modePath, const bool write,
-    StoragePathExpressionCallback pathExpressionFunction, void *const driver, const StorageInterface interface)
+    void *const driver, const StorageInterface interface)
 {
     FUNCTION_LOG_BEGIN(logLevelTrace);
         FUNCTION_LOG_PARAM(STRING_ID, type);
@@ -41,7 +40,6 @@ storageNew(
         FUNCTION_LOG_PARAM(MODE, modeFile);
         FUNCTION_LOG_PARAM(MODE, modePath);
         FUNCTION_LOG_PARAM(BOOL, write);
-        FUNCTION_LOG_PARAM(FUNCTIONP, pathExpressionFunction);
         FUNCTION_LOG_PARAM_P(VOID, driver);
         FUNCTION_LOG_PARAM(STORAGE_INTERFACE, interface);
     FUNCTION_LOG_END();
@@ -49,7 +47,7 @@ storageNew(
     FUNCTION_AUDIT_HELPER();
 
     ASSERT(type != 0);
-    ASSERT(path != NULL && pathIsAbsolute(path));
+    ASSERT(path == NULL || pathIsAbsolute(path));
     ASSERT(driver != NULL);
     ASSERT(interface.info != NULL);
     ASSERT(interface.list != NULL);
@@ -68,11 +66,10 @@ storageNew(
                 .driver = objMoveToInterface(driver, this, memContextPrior()),
                 .interface = interface,
             },
-            .path = pathDup(path),
+            .path = path == NULL ? NULL : pathDup(path),
             .modeFile = modeFile,
             .modePath = modePath,
             .write = write,
-            .pathExpressionFunction = pathExpressionFunction,
         };
 
         // If path sync feature is enabled then path feature must be enabled
@@ -96,6 +93,18 @@ storageNew(
             (!storageFeature(this, storageFeatureSymLink) && !storageFeature(this, storageFeatureHardLink)) ||
             interface.linkCreate != NULL,
             "linkCreate required");
+
+        // If the path expression resolver feature is enabled then resolvePathExpression must be implemented
+        CHECK(
+            AssertError,
+            !storageFeature(this, storageFeaturePathExpressionResolver) || interface.resolvePathExpression != NULL,
+            "resolvePathExpression required");
+
+        // If the storage support only paths with expressions the callback must have been set
+        CHECK(
+            AssertError,
+            !storageNeedsPathExpression(this) || storageFeature(this, storageFeaturePathExpressionResolver),
+            "storageFeaturePathExpressionResolver feature required");
     }
     OBJ_NEW_END();
 
@@ -525,46 +534,71 @@ storagePath(const Storage *const this, const Path *pathExp, const StoragePathPar
 
     Path *result;
 
+    if (storageNeedsPathExpression(this) || (pathExp == NULL && pathGetRootType(pathExp) == pathRootExpression))
+    {
+        if (pathExp == NULL || pathGetRootType(pathExp) != pathRootExpression)
+            THROW_FMT(AssertError, "a path expression must be used for this storage");
+
+        if (!storageFeature(this, storageFeaturePathExpressionResolver))
+            THROW_FMT(AssertError, "expression '%s' not valid without a callback function", pathZ(pathExp));
+
+        // Evaluate the path
+        Path *pathEvaluated = storageInterfaceResolvePathExpressionP(storageDriver(this), pathExp);
+
+        // Evaluated path cannot be NULL
+        if (pathEvaluated == NULL)
+            THROW_FMT(AssertError, "evaluated path '%s' cannot be null", pathZ(pathExp));
+
+        // Evaluated path must be absolute if only path expressions are supported and relative otherwise
+        if (storageNeedsPathExpression(this))
+        {
+            if (!pathIsAbsolute(pathEvaluated))
+                THROW_FMT(AssertError, "evaluated path '%s' ('%s') must be absolute", pathZ(pathExp), pathZ(pathEvaluated));
+        }
+        else
+        {
+            if (pathIsAbsolute(pathEvaluated))
+                THROW_FMT(AssertError, "evaluated path '%s' ('%s') cannot be absolute", pathZ(pathExp), pathZ(pathEvaluated));
+
+            pathMakeAbsolute(pathEvaluated, this->path);
+        }
+
+        result = pathEvaluated;
+    }
     // If there is no path expression then return the base storage path
-    if (pathExp == NULL)
+    else if (pathExp == NULL)
     {
         result = pathDup(this->path);
     }
+    // If the path expression is absolute then use it as is
+    else if (pathIsAbsolute(pathExp))
+    {
+        // Make sure the base storage path is contained within the path expression
+        if (!param.noEnforce && !pathIsRelativeTo(pathExp, this->path))
+            THROW_FMT(AssertError, "absolute path '%s' is not in base path '%s'", pathZ(pathExp), pathZ(this->path));
+
+        result = pathDup(pathExp);
+    }
+    // Else path expression is relative so combine it with the base storage path
     else
     {
-        // Check if there is a path expression that needs to be evaluated
-        if (pathGetRootType(pathExp) == pathRootExpression)
-        {
-            // Evaluate the path
-            Path *pathEvaluated = this->pathExpressionFunction(pathExp);
-
-            // Evaluated path cannot be NULL
-            if (pathEvaluated == NULL)
-                THROW_FMT(AssertError, "evaluated path '%s' cannot be null", pathZ(pathExp));
-
-            // Evaluated path must be relative
-            if (!pathIsRelative(pathEvaluated))
-                THROW_FMT(AssertError, "evaluated path '%s' ('%s') must be relative", pathZ(pathExp), pathZ(pathEvaluated));
-
-            result = pathMakeAbsolute(pathEvaluated, this->path);
-        }
-        // If the path expression is absolute then use it as is
-        else if (pathIsAbsolute(pathExp))
-        {
-            // Make sure the base storage path is contained within the path expression
-            if (!param.noEnforce && !pathIsRelativeTo(pathExp, this->path))
-                THROW_FMT(AssertError, "absolute path '%s' is not in base path '%s'", pathZ(pathExp), pathZ(this->path));
-
-            result = pathDup(pathExp);
-        }
-        // Else path expression is relative so combine it with the base storage path
-        else
-        {
-            result = pathMakeAbsolute(pathDup(pathExp), this->path);
-        }
+        result = pathMakeAbsolute(pathDup(pathExp), this->path);
     }
 
     FUNCTION_TEST_RETURN(PATH, result);
+}
+
+/**********************************************************************************************************************************/
+FN_EXTERN bool
+storageNeedsPathExpression(const Storage *const this)
+{
+    FUNCTION_LOG_BEGIN(logLevelDebug);
+        FUNCTION_LOG_PARAM(STORAGE, this);
+    FUNCTION_LOG_END();
+
+    ASSERT(this != NULL);
+
+    FUNCTION_LOG_RETURN(BOOL, this->path == NULL);
 }
 
 /**********************************************************************************************************************************/

@@ -12,12 +12,11 @@ Azure Storage Helper
 
 /**********************************************************************************************************************************/
 FN_EXTERN Storage *
-storageAzureHelper(const unsigned int repoIdx, const bool write, StoragePathExpressionCallback pathExpressionCallback)
+storageAzureHelper(const unsigned int repoIdx, const bool write)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(UINT, repoIdx);
         FUNCTION_LOG_PARAM(BOOL, write);
-        FUNCTION_LOG_PARAM_P(VOID, pathExpressionCallback);
     FUNCTION_LOG_END();
 
     ASSERT(cfgOptionIdxStrId(cfgOptRepoType, repoIdx) == STORAGE_AZURE_TYPE);
@@ -79,7 +78,7 @@ storageAzureHelper(const unsigned int repoIdx, const bool write, StoragePathExpr
         MEM_CONTEXT_PRIOR_BEGIN()
         {
             result = storageAzureNew(
-                repoPath, write, pathExpressionCallback,
+                repoPath, write,
                 cfgOptionIdxStr(cfgOptRepoAzureContainer, repoIdx), cfgOptionIdxStr(cfgOptRepoAzureAccount, repoIdx), keyType, key,
                 (size_t)cfgOptionIdxUInt64(cfgOptRepoStorageUploadChunkSize, repoIdx),
                 cfgOptionIdxKvNull(cfgOptRepoStorageTag, repoIdx), endpoint, uriStyle, port, ioTimeoutMs(),

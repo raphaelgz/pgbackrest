@@ -15,8 +15,7 @@ typedef struct StoragePosix StoragePosix;
 Constructors
 ***********************************************************************************************************************************/
 FN_EXTERN Storage *storagePosixNewInternal(
-    StringId type, const Path *path, mode_t modeFile, mode_t modePath, bool write,
-    StoragePathExpressionCallback pathExpressionFunction, bool pathSync);
+    StringId type, const Path *path, mode_t modeFile, mode_t modePath, bool write, bool pathSync);
 
 /***********************************************************************************************************************************
 Macros for function logging

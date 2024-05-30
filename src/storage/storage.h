@@ -57,6 +57,9 @@ typedef enum
 
     // Does the storage support detailed info, i.e. user, group, mode, link destination, etc.
     storageFeatureInfoDetail,
+
+    // Does the storage has a path expression resolver
+    storageFeaturePathExpressionResolver,
 } StorageFeature;
 
 /***********************************************************************************************************************************
@@ -200,6 +203,9 @@ typedef struct StoragePathParam
     storagePath(this, pathExp, (StoragePathParam){VAR_PARAM_INIT, __VA_ARGS__})
 
 FN_EXTERN Path *storagePath(const Storage *this, const Path *pathExp, StoragePathParam param);
+
+// Does need path expression?
+FN_EXTERN bool storageNeedsPathExpression(const Storage *this);
 
 // Create a path
 typedef struct StoragePathCreateParam

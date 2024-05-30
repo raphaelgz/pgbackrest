@@ -455,6 +455,45 @@ storageRemoteRemove(THIS_VOID, const Path *file, StorageInterfaceRemoveParam par
 }
 
 /**********************************************************************************************************************************/
+static String *
+storageRemoteResolvePathExpression(
+    THIS_VOID, const String *expression, const String *path, StorageInterfaceResolvePathExpressionParam param)
+{
+    THIS(StorageRemote);
+
+    FUNCTION_LOG_BEGIN(logLevelDebug);
+        FUNCTION_LOG_PARAM(STORAGE_REMOTE, this);
+        FUNCTION_LOG_PARAM(STRING, expression);
+        FUNCTION_LOG_PARAM(STRING, path);
+    FUNCTION_LOG_END();
+
+    ASSERT(this != NULL);
+    ASSERT(expression != NULL);
+
+    String *result = NULL;
+
+    MEM_CONTEXT_TEMP_BEGIN();
+    {
+        ProtocolCommand *command = protocolCommandNew(PROTOCOL_COMMAND_STORAGE_RESOLVE_PATH_EXPRESSION);
+        PackWrite *const commandParam = protocolCommandParam(command);
+
+        pckWriteStrP(commandParam, expression);
+        pckWriteStrP(commandParam, path);
+
+        PackRead *const commandResult = protocolClientExecute(this->client, command, true);
+
+        MEM_CONTEXT_PRIOR_BEGIN();
+        {
+            result = pckReadStrP(commandResult);
+        }
+        MEM_CONTEXT_PRIOR_END();
+    }
+    MEM_CONTEXT_TEMP_END();
+
+    FUNCTION_LOG_RETURN(STRING, result);
+}
+
+/**********************************************************************************************************************************/
 static const StorageInterface storageInterfaceRemote =
 {
     .info = storageRemoteInfo,
@@ -466,18 +505,18 @@ static const StorageInterface storageInterfaceRemote =
     .pathSync = storageRemotePathSync,
     .remove = storageRemoteRemove,
     .linkCreate = storageRemoteLinkCreate,
+    .resolvePathExpression = storageRemoteResolvePathExpression,
 };
 
 FN_EXTERN Storage *
 storageRemoteNew(
-    const mode_t modeFile, const mode_t modePath, const bool write, StoragePathExpressionCallback pathExpressionFunction,
+    const mode_t modeFile, const mode_t modePath, const bool write,
     ProtocolClient *const client, const unsigned int compressLevel)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(MODE, modeFile);
         FUNCTION_LOG_PARAM(MODE, modePath);
         FUNCTION_LOG_PARAM(BOOL, write);
-        FUNCTION_LOG_PARAM(FUNCTIONP, pathExpressionFunction);
         FUNCTION_LOG_PARAM(PROTOCOL_CLIENT, client);
         FUNCTION_LOG_PARAM(UINT, compressLevel);
     FUNCTION_LOG_END();
@@ -486,7 +525,7 @@ storageRemoteNew(
     ASSERT(modePath != 0);
     ASSERT(client != NULL);
 
-    const Path *path;
+    const Path *path = NULL;
 
     OBJ_NEW_BEGIN(StorageRemote, .childQty = MEM_CONTEXT_QTY_MAX)
     {
@@ -502,14 +541,18 @@ storageRemoteNew(
         {
             // Execute command and get result
             PackRead *result = protocolClientExecute(this->client, protocolCommandNew(PROTOCOL_COMMAND_STORAGE_FEATURE), true);
+            String *pathString = NULL;
 
-            String *pathString = pckReadStrP(result);
+            if (!pckReadNullP(result))
+                pathString = pckReadStrP(result);
+
             this->interface.feature = pckReadU64P(result);
 
-            // Get path in parent context
+            // Create the path object in parent context
             MEM_CONTEXT_PRIOR_BEGIN()
             {
-                path = pathNew(pathString);
+                if (pathString != NULL)
+                    path = pathNew(pathString);
             }
             MEM_CONTEXT_PRIOR_END();
         }
@@ -518,5 +561,5 @@ storageRemoteNew(
     OBJ_NEW_END();
 
     FUNCTION_LOG_RETURN(
-        STORAGE, storageNew(STORAGE_REMOTE_TYPE, path, modeFile, modePath, write, pathExpressionFunction, this, this->interface));
+        STORAGE, storageNew(STORAGE_REMOTE_TYPE, path, modeFile, modePath, write, this, this->interface));
 }

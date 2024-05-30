@@ -15,12 +15,11 @@ S3 Storage Helper
 
 /**********************************************************************************************************************************/
 FN_EXTERN Storage *
-storageS3Helper(const unsigned int repoIdx, const bool write, StoragePathExpressionCallback pathExpressionCallback)
+storageS3Helper(const unsigned int repoIdx, const bool write)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(UINT, repoIdx);
         FUNCTION_LOG_PARAM(BOOL, write);
-        FUNCTION_LOG_PARAM_P(VOID, pathExpressionCallback);
     FUNCTION_LOG_END();
 
     ASSERT(cfgOptionIdxStrId(cfgOptRepoType, repoIdx) == STORAGE_S3_TYPE);
@@ -85,7 +84,7 @@ storageS3Helper(const unsigned int repoIdx, const bool write, StoragePathExpress
         MEM_CONTEXT_PRIOR_BEGIN()
         {
             result = storageS3New(
-                repoPath, write, pathExpressionCallback,
+                repoPath, write,
                 cfgOptionIdxStr(cfgOptRepoS3Bucket, repoIdx), endPoint,
                 (StorageS3UriStyle)cfgOptionIdxStrId(cfgOptRepoS3UriStyle, repoIdx), cfgOptionIdxStr(cfgOptRepoS3Region, repoIdx),
                 keyType, cfgOptionIdxStrNull(cfgOptRepoS3Key, repoIdx), cfgOptionIdxStrNull(cfgOptRepoS3KeySecret, repoIdx),

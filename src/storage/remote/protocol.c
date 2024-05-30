@@ -160,7 +160,12 @@ storageRemoteFeatureProtocol(PackRead *const param, ProtocolServer *const server
 
         // Return storage features
         PackWrite *result = protocolPackNew();
-        pckWriteStrP(result, pathStr(storagePathP(storage, NULL)));
+
+        if (storageNeedsPathExpression(storage))
+            pckWriteNullP(result);
+        else
+            pckWriteStrP(result, pathStr(storagePathP(storage, NULL)));
+
         pckWriteU64P(result, storageInterface(storage).feature);
 
         protocolServerDataPut(server, result);
@@ -631,6 +636,34 @@ storageRemoteRemoveProtocol(PackRead *const param, ProtocolServer *const server)
         bool errorOnMissing = pckReadBoolP(param);
 
         storageInterfaceRemoveP(storageRemoteProtocolLocal.driver, file, .errorOnMissing = errorOnMissing);
+        protocolServerDataEndPut(server);
+    }
+    MEM_CONTEXT_TEMP_END();
+
+    FUNCTION_LOG_RETURN_VOID();
+}
+
+/**********************************************************************************************************************************/
+FN_EXTERN void
+storageRemoteResolvePathExpressionProtocol(PackRead *const param, ProtocolServer *const server)
+{
+    FUNCTION_LOG_BEGIN(logLevelDebug);
+        FUNCTION_LOG_PARAM(PACK_READ, param);
+        FUNCTION_LOG_PARAM(PROTOCOL_SERVER, server);
+    FUNCTION_LOG_END();
+
+    ASSERT(param != NULL);
+    ASSERT(server != NULL);
+    ASSERT(storageRemoteProtocolLocal.driver != NULL);
+
+    MEM_CONTEXT_TEMP_BEGIN()
+    {
+        const String *expression = pckReadStrP(param);
+        const String *path = pckReadStrP(param);
+
+        const String *result = storageInterfaceResolvePathExpressionP(storageRemoteProtocolLocal.driver, expression, path);
+
+        protocolServerDataPut(server, pckWriteStrP(protocolPackNew(), result));
         protocolServerDataEndPut(server);
     }
     MEM_CONTEXT_TEMP_END();

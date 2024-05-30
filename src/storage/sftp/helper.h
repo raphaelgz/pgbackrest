@@ -11,7 +11,7 @@ SFTP Storage Helper
 /***********************************************************************************************************************************
 Functions
 ***********************************************************************************************************************************/
-FN_EXTERN Storage *storageSftpHelper(unsigned int repoIdx, bool write, StoragePathExpressionCallback pathExpressionCallback);
+FN_EXTERN Storage *storageSftpHelper(unsigned int repoIdx, bool write);
 
 /***********************************************************************************************************************************
 Storage helper for StorageHelper array passed to storageHelperInit()
