@@ -43,6 +43,7 @@ src_common = files(
     'common/io/write.c',
     'common/log.c',
     'common/memContext.c',
+    'common/path.c',
     'common/regExp.c',
     'common/stackTrace.c',
     'common/time.c',
