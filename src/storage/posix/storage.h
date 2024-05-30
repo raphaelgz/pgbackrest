@@ -20,7 +20,6 @@ typedef struct StoragePosixNewParam
     bool write;
     mode_t modeFile;
     mode_t modePath;
-    StoragePathExpressionCallback *pathExpressionFunction;
 } StoragePosixNewParam;
 
 #define storagePosixNewP(path, ...)                                                                                                \

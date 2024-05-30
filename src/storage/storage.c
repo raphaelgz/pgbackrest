@@ -26,14 +26,13 @@ struct Storage
     mode_t modeFile;
     mode_t modePath;
     bool write;
-    StoragePathExpressionCallback *pathExpressionFunction;
 };
 
 /**********************************************************************************************************************************/
 FN_EXTERN Storage *
 storageNew(
     const StringId type, const Path *const path, const mode_t modeFile, const mode_t modePath, const bool write,
-    StoragePathExpressionCallback pathExpressionFunction, void *const driver, const StorageInterface interface)
+    void *const driver, const StorageInterface interface)
 {
     FUNCTION_LOG_BEGIN(logLevelTrace);
         FUNCTION_LOG_PARAM(STRING_ID, type);
@@ -41,7 +40,6 @@ storageNew(
         FUNCTION_LOG_PARAM(MODE, modeFile);
         FUNCTION_LOG_PARAM(MODE, modePath);
         FUNCTION_LOG_PARAM(BOOL, write);
-        FUNCTION_LOG_PARAM(FUNCTIONP, pathExpressionFunction);
         FUNCTION_LOG_PARAM_P(VOID, driver);
         FUNCTION_LOG_PARAM(STORAGE_INTERFACE, interface);
     FUNCTION_LOG_END();
@@ -72,7 +70,6 @@ storageNew(
             .modeFile = modeFile,
             .modePath = modePath,
             .write = write,
-            .pathExpressionFunction = pathExpressionFunction,
         };
 
         // If path sync feature is enabled then path feature must be enabled
@@ -97,10 +94,17 @@ storageNew(
             interface.linkCreate != NULL,
             "linkCreate required");
 
+        // If the path expression resolver feature is enabled then resolvePathExpression must be implemented
+        CHECK(
+            AssertError,
+            !storageFeature(this, storageFeaturePathExpressionResolver) || interface.resolvePathExpression != NULL,
+            "resolvePathExpression required");
+
         // If the storage support only paths with expressions the callback must have been set
         CHECK(
-            AssertError, !storageNeedsPathExpression(this) || this->pathExpressionFunction != NULL,
-            "pathExpressionFunction required");
+            AssertError,
+            !storageNeedsPathExpression(this) || storageFeature(this, storageFeaturePathExpressionResolver),
+            "storageFeaturePathExpressionResolver feature required");
     }
     OBJ_NEW_END();
 
@@ -535,19 +539,15 @@ storagePath(const Storage *const this, const Path *pathExp, const StoragePathPar
         if (pathExp == NULL || pathGetRootType(pathExp) != pathRootExpression)
             THROW_FMT(AssertError, "a path expression must be used for this storage");
 
-        if (this->pathExpressionFunction == NULL)
+        if (!storageFeature(this, storageFeaturePathExpressionResolver))
             THROW_FMT(AssertError, "expression '%s' not valid without a callback function", pathZ(pathExp));
 
         // Evaluate the path
-        Path *pathEvaluated = this->pathExpressionFunction(pathExp);
+        Path *pathEvaluated = storageInterfaceResolvePathExpressionP(storageDriver(this), pathExp);
 
         // Evaluated path cannot be NULL
         if (pathEvaluated == NULL)
             THROW_FMT(AssertError, "evaluated path '%s' cannot be null", pathZ(pathExp));
-
-        // Evaluated path must be relative
-        if (!pathIsRelative(pathEvaluated))
-            THROW_FMT(AssertError, "evaluated path '%s' ('%s') must be relative", pathZ(pathExp), pathZ(pathEvaluated));
 
         // Evaluated path must be absolute if only path expressions are supported and relative otherwise
         if (storageNeedsPathExpression(this))

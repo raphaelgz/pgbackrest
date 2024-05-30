@@ -30,7 +30,6 @@ typedef struct StorageSftpNewParam
     bool write;
     mode_t modeFile;
     mode_t modePath;
-    StoragePathExpressionCallback *pathExpressionFunction;
     const String *keyPub;
     const String *keyPassphrase;
     StringId hostKeyCheckType;

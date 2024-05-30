@@ -1,19 +1,22 @@
 /***********************************************************************************************************************************
-CIFS Storage Helper
+"Virtual File System" Storage Internal
 ***********************************************************************************************************************************/
-#ifndef STORAGE_CIFS_STORAGE_HELPER_H
-#define STORAGE_CIFS_STORAGE_HELPER_H
+#ifndef STORAGE_VFS_STORAGE_INTERN_H
+#define STORAGE_VFS_STORAGE_INTERN_H
 
-#include "storage/cifs/storage.h"
-
-/***********************************************************************************************************************************
-Functions
-***********************************************************************************************************************************/
-FN_EXTERN Storage *storageCifsHelper(unsigned int repoIdx, bool write);
+#include "storage/vfs/storage.h"
 
 /***********************************************************************************************************************************
-Storage helper for StorageHelper array passed to storageHelperInit()
+Object type
 ***********************************************************************************************************************************/
-#define STORAGE_CIFS_HELPER                                         {.type = STORAGE_CIFS_TYPE, .helper = storageCifsHelper}
+typedef struct StorageVfs StorageVfs;
+
+/***********************************************************************************************************************************
+Macros for function logging
+***********************************************************************************************************************************/
+#define FUNCTION_LOG_STORAGE_VFS_TYPE                                                                                           \
+    StorageVfs *
+#define FUNCTION_LOG_STORAGE_VFS_FORMAT(value, buffer, bufferSize)                                                              \
+    objNameToLog(value, "StorageVfs", buffer, bufferSize)
 
 #endif

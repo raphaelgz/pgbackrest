@@ -1114,7 +1114,7 @@ static const StorageInterface storageInterfaceS3 =
 
 FN_EXTERN Storage *
 storageS3New(
-    const Path *const path, const bool write, StoragePathExpressionCallback pathExpressionFunction, const String *const bucket,
+    const Path *const path, const bool write, const String *const bucket,
     const String *const endPoint, const StorageS3UriStyle uriStyle, const String *const region, const StorageS3KeyType keyType,
     const String *const accessKey, const String *const secretAccessKey, const String *const securityToken,
     const String *const kmsKeyId, const String *sseCustomerKey, const String *const credRole, const String *const webIdToken,
@@ -1124,7 +1124,6 @@ storageS3New(
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(PATH, path);
         FUNCTION_LOG_PARAM(BOOL, write);
-        FUNCTION_LOG_PARAM(FUNCTIONP, pathExpressionFunction);
         FUNCTION_LOG_PARAM(STRING, bucket);
         FUNCTION_LOG_PARAM(STRING, endPoint);
         FUNCTION_LOG_PARAM(STRING_ID, uriStyle);
@@ -1258,5 +1257,5 @@ storageS3New(
     }
     OBJ_NEW_END();
 
-    FUNCTION_LOG_RETURN(STORAGE, storageNew(STORAGE_S3_TYPE, path, 0, 0, write, pathExpressionFunction, this, this->interface));
+    FUNCTION_LOG_RETURN(STORAGE, storageNew(STORAGE_S3_TYPE, path, 0, 0, write, this, this->interface));
 }

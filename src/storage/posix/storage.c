@@ -591,7 +591,7 @@ static const StorageInterface storageInterfacePosix =
 FN_EXTERN Storage *
 storagePosixNewInternal(
     const StringId type, const Path *const path, const mode_t modeFile, const mode_t modePath, const bool write,
-    StoragePathExpressionCallback pathExpressionFunction, const bool pathSync)
+    const bool pathSync)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STRING_ID, type);
@@ -599,7 +599,6 @@ storagePosixNewInternal(
         FUNCTION_LOG_PARAM(MODE, modeFile);
         FUNCTION_LOG_PARAM(MODE, modePath);
         FUNCTION_LOG_PARAM(BOOL, write);
-        FUNCTION_LOG_PARAM(FUNCTIONP, pathExpressionFunction);
         FUNCTION_LOG_PARAM(BOOL, pathSync);
     FUNCTION_LOG_END();
 
@@ -631,7 +630,7 @@ storagePosixNewInternal(
     }
     OBJ_NEW_END();
 
-    FUNCTION_LOG_RETURN(STORAGE, storageNew(type, path, modeFile, modePath, write, pathExpressionFunction, this, this->interface));
+    FUNCTION_LOG_RETURN(STORAGE, storageNew(type, path, modeFile, modePath, write, this, this->interface));
 }
 
 FN_EXTERN Storage *
@@ -642,14 +641,13 @@ storagePosixNew(const Path *const path, const StoragePosixNewParam param)
         FUNCTION_LOG_PARAM(MODE, param.modeFile);
         FUNCTION_LOG_PARAM(MODE, param.modePath);
         FUNCTION_LOG_PARAM(BOOL, param.write);
-        FUNCTION_LOG_PARAM(FUNCTIONP, param.pathExpressionFunction);
     FUNCTION_LOG_END();
 
     FUNCTION_LOG_RETURN(
         STORAGE,
         storagePosixNewInternal(
             STORAGE_POSIX_TYPE, path, param.modeFile == 0 ? STORAGE_MODE_FILE_DEFAULT : param.modeFile,
-            param.modePath == 0 ? STORAGE_MODE_PATH_DEFAULT : param.modePath, param.write, param.pathExpressionFunction, true));
+            param.modePath == 0 ? STORAGE_MODE_PATH_DEFAULT : param.modePath, param.write, true));
 }
 
 FN_EXTERN Storage *
@@ -660,7 +658,6 @@ storagePosixNewStr(const String *const path, StoragePosixNewParam param)
         FUNCTION_LOG_PARAM(MODE, param.modeFile);
         FUNCTION_LOG_PARAM(MODE, param.modePath);
         FUNCTION_LOG_PARAM(BOOL, param.write);
-        FUNCTION_LOG_PARAM(FUNCTIONP, param.pathExpressionFunction);
     FUNCTION_LOG_END();
 
     Path *p = pathNew(path);

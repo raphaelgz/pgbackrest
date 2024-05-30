@@ -12,12 +12,11 @@ SFTP Storage Helper
 
 /**********************************************************************************************************************************/
 FN_EXTERN Storage *
-storageSftpHelper(const unsigned int repoIdx, const bool write, StoragePathExpressionCallback pathExpressionCallback)
+storageSftpHelper(const unsigned int repoIdx, const bool write)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(UINT, repoIdx);
         FUNCTION_LOG_PARAM(BOOL, write);
-        FUNCTION_LOG_PARAM_P(VOID, pathExpressionCallback);
     FUNCTION_LOG_END();
 
     ASSERT(cfgOptionIdxStrId(cfgOptRepoType, repoIdx) == STORAGE_SFTP_TYPE);
@@ -36,7 +35,7 @@ storageSftpHelper(const unsigned int repoIdx, const bool write, StoragePathExpre
                 cfgOptionIdxUInt(cfgOptRepoSftpHostPort, repoIdx), cfgOptionIdxStr(cfgOptRepoSftpHostUser, repoIdx),
                 cfgOptionUInt64(cfgOptIoTimeout), cfgOptionIdxStr(cfgOptRepoSftpPrivateKeyFile, repoIdx),
                 cfgOptionIdxStrId(cfgOptRepoSftpHostKeyHashType, repoIdx), .write = write,
-                .pathExpressionFunction = pathExpressionCallback, .modeFile = STORAGE_MODE_FILE_DEFAULT,
+                .modeFile = STORAGE_MODE_FILE_DEFAULT,
                 .modePath = STORAGE_MODE_PATH_DEFAULT, .keyPub = cfgOptionIdxStrNull(cfgOptRepoSftpPublicKeyFile, repoIdx),
                 .keyPassphrase = cfgOptionIdxStrNull(cfgOptRepoSftpPrivateKeyPassphrase, repoIdx),
                 .hostKeyCheckType = cfgOptionIdxStrId(cfgOptRepoSftpHostKeyCheckType, repoIdx),
