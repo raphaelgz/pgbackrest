@@ -201,6 +201,9 @@ typedef struct StoragePathParam
 
 FN_EXTERN Path *storagePath(const Storage *this, const Path *pathExp, StoragePathParam param);
 
+// Does need path expression?
+FN_EXTERN bool storageNeedsPathExpression(const Storage *this);
+
 // Create a path
 typedef struct StoragePathCreateParam
 {
