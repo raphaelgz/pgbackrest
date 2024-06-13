@@ -55,11 +55,11 @@ FN_EXTERN String *pathGetPartStr(const Path *this, PathPart part);
 Functions
 ***********************************************************************************************************************************/
 FN_EXTERN String *pathToString(const Path *this);
-FN_EXTERN Path *pathChangeDir(Path *this, const Path *path);
-FN_EXTERN Path *pathChangeDirStr(Path *this, const String *path);
-FN_EXTERN Path *pathChangeDirZ(Path *this, const char *path);
-FN_EXTERN Path *pathChangeDirZN(Path *this, const char *path, size_t length);
-FN_EXTERN FN_PRINTF(2, 3) Path *pathChangeDirFmt(Path *this, const char *format, ...);
+//FN_EXTERN Path *pathChangeDir(Path *this, const Path *path);
+//FN_EXTERN Path *pathChangeDirStr(Path *this, const String *path);
+//FN_EXTERN Path *pathChangeDirZ(Path *this, const char *path);
+//FN_EXTERN Path *pathChangeDirZN(Path *this, const char *path, size_t length);
+//FN_EXTERN FN_PRINTF(2, 3) Path *pathChangeDirFmt(Path *this, const char *format, ...);
 FN_EXTERN Path *pathMakeAbsolute(const Path *this, const Path *basePath);
 FN_EXTERN Path *pathMakeRelativeTo(const Path *this, const Path *basePath);
 

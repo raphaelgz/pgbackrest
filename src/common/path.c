@@ -81,6 +81,85 @@ pathNewInternal(void)
 }
 
 /**********************************************************************************************************************************/
+static void
+pathAddFolderZN(Path *this, const char *folder, size_t length)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(PATH, this);
+        /* FIXME: use FUNCTION_TEST_PARAM instead? (everywhere) */
+        FUNCTION_TEST_PARAM_P(CHARDATA, folder);
+        FUNCTION_TEST_PARAM(SIZE, length);
+    FUNCTION_TEST_END();
+
+    ASSERT(this != NULL);
+    ASSERT(folder != NULL);
+    ASSERT(length > 0);
+
+    MEM_CONTEXT_OBJ_BEGIN(this);
+    {
+        if (this->folders == NULL)
+            this->folders = strLstNew();
+
+        strLstAddZSub(this->folders, folder, length);
+    }
+    MEM_CONTEXT_OBJ_END();
+
+    FUNCTION_TEST_RETURN_VOID();
+}
+
+/**********************************************************************************************************************************/
+static void
+pathAddFolderStr(Path *this, const String *folder)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(PATH, this);
+        FUNCTION_TEST_PARAM(STRING, folder);
+    FUNCTION_TEST_END();
+
+    pathAddFolderZN(this, strZ(folder), strSize(folder));
+
+    FUNCTION_TEST_RETURN_VOID();
+}
+
+/**********************************************************************************************************************************/
+static void
+pathAddFolderZ(Path *this, const char *folder)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(PATH, this);
+        FUNCTION_TEST_PARAM(STRINGZ, folder);
+    FUNCTION_TEST_END();
+
+    ASSERT(this != NULL);
+    ASSERT(folder != NULL);
+
+    pathAddFolderZN(this, folder, strlen(folder));
+
+    FUNCTION_TEST_RETURN_VOID();
+}
+
+/**********************************************************************************************************************************/
+static void
+pathAddFolderZSubN(Path *this, const char *folder, size_t offset, size_t length)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(PATH, this);
+        /* FIXME: use FUNCTION_TEST_PARAM instead? (everywhere) */
+        FUNCTION_TEST_PARAM_P(CHARDATA, folder);
+        FUNCTION_TEST_PARAM(SIZE, offset);
+        FUNCTION_TEST_PARAM(SIZE, length);
+    FUNCTION_TEST_END();
+
+    ASSERT(this != NULL);
+    ASSERT(folder != NULL);
+    ASSERT(length > 0);
+
+    pathAddFolderZN(this, folder + offset, length);
+
+    FUNCTION_TEST_RETURN_VOID();
+}
+
+/**********************************************************************************************************************************/
 static size_t
 pathDetectComponentLength(const char *path, size_t length)
 {
@@ -185,12 +264,7 @@ pathParseFolders(Path *this, const char *path, size_t length, bool forceDirector
 
         // The component length will be zero if there is a sequence of directory separators
         if (componentLength > 0)
-        {
-            if (this->folders == NULL)
-                this->folders = strLstNew();
-
-            strLstAddZSubN(this->folders, path, consumedSize, componentLength);
-        }
+            pathAddFolderZSubN(this, path, consumedSize, componentLength);
 
         consumedSize += componentLength;
 
@@ -443,14 +517,12 @@ pathGetPartStr(const Path *this, PathPart part)
                 break;
 
             case pathPartDirectory:
+                result = strNew();
+
                 for (unsigned int idx = 0; idx < strLstSize(this->folders); idx++)
                 {
-                    if (result == NULL)
-                        result = strNew();
-                    else
-                        result = strCatChr(result, '/');
-
                     result = strCat(result, strLstGet(this->folders, idx));
+                    result = strCatChr(result, '/');
                 }
                 break;
 
@@ -484,14 +556,18 @@ pathToString(const Path *this)
 
         part = pathGetPartStr(this, pathPartDirectory);
 
-        if (part != NULL)
+        if (part != NULL) {
+            if (!strEmpty(result) && !strEndsWithZ(result, "/"))
+                result = strCatChr(result, '/');
+
             result = strCat(result, part);
+        }
 
         part = pathGetPartStr(this, pathPartFile);
 
         if (part != NULL)
         {
-            if (!strEmpty(result))
+            if (!strEmpty(result) && !strEndsWithZ(result, "/"))
                 result = strCatChr(result, '/');
 
             result = strCat(result, part);
@@ -552,35 +628,61 @@ pathMakeRelativeTo(const Path *this, const Path *basePath)
     ASSERT(pathIsAbsolute(basePath));
     ASSERT(!pathHasPart(basePath, pathPartFile)); // No path can be relative to a file
 
-    Path *result = pathDup(this);
+    Path *result = NULL;
 
     // Both paths must be based on the same root
     if (this->rootType == basePath->rootType && strCmp(this->root, basePath->root) == 0)
     {
-        strFree(result->root);
+        unsigned int baseFoldersIdx = 0;
+        unsigned int thisFoldersIdx = 0;
 
-        result->root = NULL;
-        result->rootType = pathRootNone;
+        result = pathNewInternal();
 
-        if (pathHasPart(this, pathPartDirectory) && pathHasPart(basePath, pathPartDirectory))
+        MEM_CONTEXT_OBJ_BEGIN(result);
         {
-            
-        }
-//        else if (pathHasPart(this, pathPartDirectory) && strLstSize(this->folders) >= strLstSize(basePath->folders))
-//        {
-//            result = true;
-//
-//            for (unsigned int idx = 0; idx < strLstSize(basePath->folders); idx++)
-//            {
-//                if (strCmp(strLstGet(this->folders, idx), strLstGet(basePath->folders, idx)) != 0)
-//                {
-//                    result = false;
-//                    break;
-//                }
-//            }
-//        }
-    }
+            // Find the common prefix between the two paths
+            if (pathHasPart(this, pathPartDirectory) && pathHasPart(basePath, pathPartDirectory))
+            {
+                while (thisFoldersIdx < strLstSize(this->folders) && baseFoldersIdx < strLstSize(basePath->folders))
+                {
+                    if (!strEq(strLstGet(this->folders, thisFoldersIdx), strLstGet(basePath->folders, baseFoldersIdx)))
+                        break;
 
+                    thisFoldersIdx++;
+                    baseFoldersIdx++;
+                }
+            }
+
+            // If the path is not relative to the base path go back some levels
+            if (pathHasPart(basePath, pathPartDirectory))
+            {
+                while (baseFoldersIdx < strLstSize(basePath->folders)) {
+                    pathAddFolderZ(result, "..");
+                    baseFoldersIdx++;
+                }
+            }
+
+            // Append the relative part
+            if (pathHasPart(this, pathPartDirectory))
+            {
+                while (thisFoldersIdx < strLstSize(this->folders)) {
+                    pathAddFolderStr(result, strLstGet(this->folders, thisFoldersIdx));
+                    thisFoldersIdx++;
+                }
+            }
+
+            // Append the file name
+            if (pathHasPart(this, pathPartFile))
+                result->fileName = strDup(this->fileName);
+
+            pathClean(result);
+        }
+        MEM_CONTEXT_OBJ_END();
+    }
+    else
+        result = pathDup(this);
+
+    FUNCTION_TEST_RETURN(PATH, result);
 }
 
 /**********************************************************************************************************************************/
