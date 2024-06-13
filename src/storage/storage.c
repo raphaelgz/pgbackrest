@@ -10,7 +10,6 @@ Storage Interface
 #include "common/io/io.h"
 #include "common/log.h"
 #include "common/memContext.h"
-#include "common/path.h"
 #include "common/regExp.h"
 #include "common/type/list.h"
 #include "common/wait.h"
@@ -49,7 +48,7 @@ storageNew(
     FUNCTION_AUDIT_HELPER();
 
     ASSERT(type != 0);
-    ASSERT(pathIsAbsolute(path));
+    ASSERT(strSize(path) >= 1 && strZ(path)[0] == '/');
     ASSERT(driver != NULL);
     ASSERT(interface.info != NULL);
     ASSERT(interface.list != NULL);
@@ -533,11 +532,18 @@ storagePath(const Storage *const this, const String *pathExp, const StoragePathP
     else
     {
         // If the path expression is absolute then use it as is
-        if (pathIsAbsolute(pathExp))
+        if ((strZ(pathExp))[0] == '/')
         {
             // Make sure the base storage path is contained within the path expression
-            if (!param.noEnforce && !pathIsRelativeTo(this->path, pathExp))
-                THROW_FMT(AssertError, "absolute path '%s' is not in base path '%s'", strZ(pathExp), strZ(this->path));
+            if (!strEqZ(this->path, "/"))
+            {
+                if (!param.noEnforce &&
+                    (!strBeginsWith(pathExp, this->path) ||
+                     !(strSize(pathExp) == strSize(this->path) || *(strZ(pathExp) + strSize(this->path)) == '/')))
+                {
+                    THROW_FMT(AssertError, "absolute path '%s' is not in base path '%s'", strZ(pathExp), strZ(this->path));
+                }
+            }
 
             result = strDup(pathExp);
         }
@@ -586,10 +592,6 @@ storagePath(const Storage *const this, const String *pathExp, const StoragePathP
                 if (pathEvaluated == NULL)
                     THROW_FMT(AssertError, "evaluated path '%s' cannot be null", strZ(pathExp));
 
-                // Evaluated path cannot be absolute
-                if (pathIsAbsolute(pathEvaluated))
-                    THROW_FMT(AssertError, "evaluated path '%s' ('%s') cannot be absolute", strZ(pathExp), strZ(pathEvaluated));
-
                 // Assign evaluated path to path
                 pathExp = pathEvaluated;
 
@@ -598,7 +600,10 @@ storagePath(const Storage *const this, const String *pathExp, const StoragePathP
                 strFree(path);
             }
 
-            result = pathMakeAbsolute(this->path, pathExp);
+            if (strEqZ(this->path, "/"))
+                result = strNewFmt("/%s", strZ(pathExp));
+            else
+                result = strNewFmt("%s/%s", strZ(this->path), strZ(pathExp));
 
             strFree(pathEvaluated);
         }
