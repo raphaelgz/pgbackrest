@@ -63,8 +63,7 @@ pathIsValidComponentChar(char c)
 static Path *
 pathNewInternal(void)
 {
-    FUNCTION_TEST_BEGIN();
-    FUNCTION_TEST_END();
+    FUNCTION_TEST_VOID();
 
     OBJ_NEW_BEGIN(Path)
     {
