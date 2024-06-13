@@ -63,12 +63,14 @@ FN_EXTERN String *pathToString(const Path *this);
 FN_EXTERN Path *pathMakeAbsolute(const Path *this, const Path *basePath);
 FN_EXTERN Path *pathMakeRelativeTo(const Path *this, const Path *basePath);
 
-/* FIXME: log support */
+/***********************************************************************************************************************************
+Log support
+***********************************************************************************************************************************/
+FN_EXTERN void pathToLog(const Path *this, StringStatic *debugLog);
 
-//FN_EXTERN bool pathIsAbsolute(const String *path);
-//FN_EXTERN bool pathIsRelative(const String *path);
-//FN_EXTERN bool pathIsRelativeTo(const String *basePath, const String *path);
-//FN_EXTERN String *pathMakeAbsolute(const String *basePath, const String *path);
-//FN_EXTERN String *pathMakeRelativeTo(const String *basePath, const String *path);
+#define FUNCTION_LOG_PATH_TYPE                                                                                                     \
+    Path *
+#define FUNCTION_LOG_PATH_FORMAT(value, buffer, bufferSize)                                                                        \
+    FUNCTION_LOG_OBJECT_FORMAT(value, pathToLog, buffer, bufferSize)
 
 #endif
