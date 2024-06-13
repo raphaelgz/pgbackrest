@@ -460,7 +460,13 @@ storageVfsResolvePathExpression(THIS_VOID, const Path *const pathExp, StorageInt
 
     if (mountPoint != NULL)
     {
-        Path *const resolvedPath = mountPoint->callback(pathExp);
+        Path *resolvedPath;
+
+        // If there is no special callback associated with the mount point just remove the root expression
+        if (mountPoint->callback == NULL)
+            resolvedPath = pathResolveExpressionZ(pathExp, ".");
+        else
+            resolvedPath = mountPoint->callback(pathExp);
 
         if (resolvedPath != NULL)
         {

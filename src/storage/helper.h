@@ -21,6 +21,9 @@ STRING_DECLARE(STORAGE_REPO_ARCHIVE_STR);
 #define STORAGE_REPO_BACKUP                                         "<REPO:BACKUP>"
 STRING_DECLARE(STORAGE_REPO_BACKUP_STR);
 
+#define STORAGE_PG_DATA                                             "<PG:DATA>"
+#define STORAGE_PG_CONFIG                                           "<PG:CONFIG>"
+
 #define STORAGE_PATH_ARCHIVE                                        "archive"
 STRING_DECLARE(STORAGE_PATH_ARCHIVE_STR);
 #define STORAGE_PATH_BACKUP                                         "backup"

@@ -526,7 +526,7 @@ pathSetBase(Path *const this, const Path *const basePath)
 
     pathSetRootComponentStr(this, pathGetRootType(basePath), pathGetRoot(basePath));
 
-    if (pathGetComponentCount(basePath) > 0)
+    if (pathGetComponentCount(basePath) > 1)
     {
         for (unsigned int idx = pathGetComponentCount(basePath) - 1; idx > 0; idx--)
             pathPrependNonRootComponentStr(this, pathGetComponent(basePath, idx));

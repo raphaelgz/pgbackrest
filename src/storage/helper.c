@@ -14,6 +14,7 @@ Storage Helper
 #include "storage/helper.h"
 #include "storage/posix/storage.h"
 #include "storage/remote/storage.h"
+#include "storage/vfs/storage.h"
 
 /***********************************************************************************************************************************
 Storage path constants
@@ -192,9 +193,30 @@ storagePgGet(const unsigned int pgIdx, const bool write)
             STORAGE_MODE_FILE_DEFAULT, STORAGE_MODE_PATH_DEFAULT, write,
             protocolRemoteGet(protocolStorageTypePg, pgIdx), cfgOptionUInt(cfgOptCompressLevelNetwork));
     }
-    // Use Posix storage
+    // Use VFS storage
     else
-        result = storagePosixNewStrP(cfgOptionIdxStr(cfgOptPgPath, pgIdx), .write = write);
+    {
+        MEM_CONTEXT_TEMP_BEGIN();
+        {
+            StorageVfsMountPointList *mountPoints = storageVfsMountPointListNew();
+
+            StorageVfsMountPoint dataMountPoint =
+            {
+                .storage = storagePosixNewStrP(cfgOptionIdxStr(cfgOptPgPath, pgIdx), .write = write),
+                .expression = STR(STORAGE_PG_DATA),
+                .virtualFolder = STR("6c910630-d9c1-43f4-9702-bb4bdb5d0173")
+            };
+
+            storageVfsMountPointListAdd(mountPoints, &dataMountPoint);
+
+            MEM_CONTEXT_PRIOR_BEGIN();
+            {
+                result = storageVfsNewP(mountPoints);
+            }
+            MEM_CONTEXT_PRIOR_END();
+        }
+        MEM_CONTEXT_TEMP_END();
+    }
 
     FUNCTION_TEST_RETURN(STORAGE, result);
 }
@@ -379,6 +401,32 @@ storageRepoGet(const unsigned int repoIdx, const bool write)
             result = storagePosixNewStrP(
                 cfgOptionIdxStr(cfgOptRepoPath, repoIdx), .write = write);
         }
+
+        MEM_CONTEXT_TEMP_BEGIN();
+        {
+            StorageVfsMountPointList *mountPoints = storageVfsMountPointListNew();
+
+            StorageVfsMountPoint mountPoint =
+            {
+                .storage = result,
+                .virtualFolder = STR("ae2370d3-2df1-44ed-881b-ff3fa167adfb"),
+                .expression = STORAGE_REPO_ARCHIVE_STR,
+                .callback = storageRepoPathExpression
+            };
+
+            storageVfsMountPointListAdd(mountPoints, &mountPoint);
+
+            mountPoint.expression = strDup(STORAGE_REPO_BACKUP_STR);
+
+            storageVfsMountPointListAdd(mountPoints, &mountPoint);
+
+            MEM_CONTEXT_PRIOR_BEGIN();
+            {
+                result = storageVfsNewP(mountPoints);
+            }
+            MEM_CONTEXT_PRIOR_END();
+        }
+        MEM_CONTEXT_TEMP_END();
     }
 
     FUNCTION_TEST_RETURN(STORAGE, result);

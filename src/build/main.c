@@ -17,6 +17,8 @@ Code Builder
 #include "build/postgres/parse.h"
 #include "build/postgres/render.h"
 
+#include "build/common/render.h"
+
 int
 main(const int argListSize, const char *const argList[])
 {
@@ -30,6 +32,9 @@ main(const int argListSize, const char *const argList[])
     FUNCTION_LOG_END();
 
     int result = 0;
+
+//    printf("AAAAA: %s\n", strZ(bldStrId("s-rpe")));
+//    return 0;
 
     TRY_BEGIN()
     {
