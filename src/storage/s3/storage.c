@@ -777,13 +777,13 @@ storageS3ListInternal(
 
 /**********************************************************************************************************************************/
 static StorageInfo
-storageS3Info(THIS_VOID, const String *const file, const StorageInfoLevel level, const StorageInterfaceInfoParam param)
+storageS3Info(THIS_VOID, const Path *const file, const StorageInfoLevel level, const StorageInterfaceInfoParam param)
 {
     THIS(StorageS3);
 
     FUNCTION_LOG_BEGIN(logLevelTrace);
         FUNCTION_LOG_PARAM(STORAGE_S3, this);
-        FUNCTION_LOG_PARAM(STRING, file);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(ENUM, level);
         (void)param;                                                // No parameters are used
     FUNCTION_LOG_END();
@@ -792,7 +792,7 @@ storageS3Info(THIS_VOID, const String *const file, const StorageInfoLevel level,
     ASSERT(file != NULL);
 
     // Attempt to get file info
-    HttpResponse *const httpResponse = storageS3RequestP(this, HTTP_VERB_HEAD_STR, file, .allowMissing = true, .sseC = true);
+    HttpResponse *const httpResponse = storageS3RequestP(this, HTTP_VERB_HEAD_STR, pathStr(file), .allowMissing = true, .sseC = true);
 
     // Does the file exist?
     StorageInfo result = {.level = level, .exists = httpResponseCodeOk(httpResponse)};
@@ -834,13 +834,13 @@ storageS3ListCallback(void *const callbackData, const StorageInfo *const info)
 }
 
 static StorageList *
-storageS3List(THIS_VOID, const String *const path, const StorageInfoLevel level, const StorageInterfaceListParam param)
+storageS3List(THIS_VOID, const Path *const path, const StorageInfoLevel level, const StorageInterfaceListParam param)
 {
     THIS(StorageS3);
 
     FUNCTION_LOG_BEGIN(logLevelTrace);
         FUNCTION_LOG_PARAM(STORAGE_S3, this);
-        FUNCTION_LOG_PARAM(STRING, path);
+        FUNCTION_LOG_PARAM(PATH, path);
         FUNCTION_LOG_PARAM(ENUM, level);
         FUNCTION_LOG_PARAM(STRING, param.expression);
     FUNCTION_LOG_END();
@@ -850,20 +850,20 @@ storageS3List(THIS_VOID, const String *const path, const StorageInfoLevel level,
 
     StorageList *const result = storageLstNew(level);
 
-    storageS3ListInternal(this, path, level, param.expression, false, storageS3ListCallback, result);
+    storageS3ListInternal(this, pathStr(path), level, param.expression, false, storageS3ListCallback, result);
 
     FUNCTION_LOG_RETURN(STORAGE_LIST, result);
 }
 
 /**********************************************************************************************************************************/
 static StorageRead *
-storageS3NewRead(THIS_VOID, const String *const file, const bool ignoreMissing, const StorageInterfaceNewReadParam param)
+storageS3NewRead(THIS_VOID, const Path *const file, const bool ignoreMissing, const StorageInterfaceNewReadParam param)
 {
     THIS(StorageS3);
 
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE_S3, this);
-        FUNCTION_LOG_PARAM(STRING, file);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(BOOL, ignoreMissing);
         FUNCTION_LOG_PARAM(UINT64, param.offset);
         FUNCTION_LOG_PARAM(VARIANT, param.limit);
@@ -877,13 +877,13 @@ storageS3NewRead(THIS_VOID, const String *const file, const bool ignoreMissing, 
 
 /**********************************************************************************************************************************/
 static StorageWrite *
-storageS3NewWrite(THIS_VOID, const String *const file, const StorageInterfaceNewWriteParam param)
+storageS3NewWrite(THIS_VOID, const Path *const file, const StorageInterfaceNewWriteParam param)
 {
     THIS(StorageS3);
 
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE_S3, this);
-        FUNCTION_LOG_PARAM(STRING, file);
+        FUNCTION_LOG_PARAM(PATH, file);
         (void)param;                                                // No parameters are used
     FUNCTION_LOG_END();
 
@@ -1023,13 +1023,13 @@ storageS3PathRemoveCallback(void *const callbackData, const StorageInfo *const i
 }
 
 static bool
-storageS3PathRemove(THIS_VOID, const String *const path, const bool recurse, const StorageInterfacePathRemoveParam param)
+storageS3PathRemove(THIS_VOID, const Path *const path, const bool recurse, const StorageInterfacePathRemoveParam param)
 {
     THIS(StorageS3);
 
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE_S3, this);
-        FUNCTION_LOG_PARAM(STRING, path);
+        FUNCTION_LOG_PARAM(PATH, path);
         FUNCTION_LOG_PARAM(BOOL, recurse);
         (void)param;                                                // No parameters are used
     FUNCTION_LOG_END();
@@ -1043,10 +1043,10 @@ storageS3PathRemove(THIS_VOID, const String *const path, const bool recurse, con
         {
             .this = this,
             .memContext = memContextCurrent(),
-            .path = strEq(path, FSLASH_STR) ? EMPTY_STR : strNewFmt("%s/", strZ(strSub(path, 1))),
+            .path = pathIsRoot(path) ? EMPTY_STR : strNewFmt("%s/", pathZ(path) + 1),
         };
 
-        storageS3ListInternal(this, path, storageInfoLevelType, NULL, true, storageS3PathRemoveCallback, &data);
+        storageS3ListInternal(this, pathStr(path), storageInfoLevelType, NULL, true, storageS3PathRemoveCallback, &data);
 
         // Call if there is more to be removed
         if (data.xml != NULL)
@@ -1062,13 +1062,13 @@ storageS3PathRemove(THIS_VOID, const String *const path, const bool recurse, con
 
 /**********************************************************************************************************************************/
 static void
-storageS3Remove(THIS_VOID, const String *const file, const StorageInterfaceRemoveParam param)
+storageS3Remove(THIS_VOID, const Path *const file, const StorageInterfaceRemoveParam param)
 {
     THIS(StorageS3);
 
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE_S3, this);
-        FUNCTION_LOG_PARAM(STRING, file);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(BOOL, param.errorOnMissing);
     FUNCTION_LOG_END();
 
@@ -1076,7 +1076,7 @@ storageS3Remove(THIS_VOID, const String *const file, const StorageInterfaceRemov
     ASSERT(file != NULL);
     ASSERT(!param.errorOnMissing);
 
-    httpResponseFree(storageS3RequestP(this, HTTP_VERB_DELETE_STR, file));
+    httpResponseFree(storageS3RequestP(this, HTTP_VERB_DELETE_STR, pathStr(file)));
 
     FUNCTION_LOG_RETURN_VOID();
 }
@@ -1094,7 +1094,7 @@ static const StorageInterface storageInterfaceS3 =
 
 FN_EXTERN Storage *
 storageS3New(
-    const String *const path, const bool write, StoragePathExpressionCallback pathExpressionFunction, const String *const bucket,
+    const Path *const path, const bool write, StoragePathExpressionCallback pathExpressionFunction, const String *const bucket,
     const String *const endPoint, const StorageS3UriStyle uriStyle, const String *const region, const StorageS3KeyType keyType,
     const String *const accessKey, const String *const secretAccessKey, const String *const securityToken,
     const String *const kmsKeyId, const String *sseCustomerKey, const String *const credRole, const String *const webIdToken,
@@ -1102,7 +1102,7 @@ storageS3New(
     const bool verifyPeer, const String *const caFile, const String *const caPath)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
-        FUNCTION_LOG_PARAM(STRING, path);
+        FUNCTION_LOG_PARAM(PATH, path);
         FUNCTION_LOG_PARAM(BOOL, write);
         FUNCTION_LOG_PARAM(FUNCTIONP, pathExpressionFunction);
         FUNCTION_LOG_PARAM(STRING, bucket);

@@ -11,6 +11,6 @@ Azure Storage Read
 Constructors
 ***********************************************************************************************************************************/
 FN_EXTERN StorageRead *storageReadAzureNew(
-    StorageAzure *storage, const String *name, bool ignoreMissing, uint64_t offset, const Variant *limit);
+    StorageAzure *storage, const Path *file, bool ignoreMissing, uint64_t offset, const Variant *limit);
 
 #endif

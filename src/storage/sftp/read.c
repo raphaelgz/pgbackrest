@@ -53,7 +53,7 @@ storageReadSftpOpen(THIS_VOID)
     do
     {
         this->sftpHandle = libssh2_sftp_open_ex(
-            this->sftpSession, strZ(this->interface.name), (unsigned int)strSize(this->interface.name), LIBSSH2_FXF_READ, 0,
+            this->sftpSession, pathZ(this->interface.path), (unsigned int)strSize(pathStr(this->interface.path)), LIBSSH2_FXF_READ, 0,
             LIBSSH2_SFTP_OPENFILE);
     }
     while (this->sftpHandle == NULL && storageSftpWaitFd(this->storage, libssh2_session_last_errno(this->session)));
@@ -67,13 +67,13 @@ storageReadSftpOpen(THIS_VOID)
             if (libssh2_sftp_last_error(this->sftpSession) == LIBSSH2_FX_NO_SUCH_FILE)
             {
                 if (!this->interface.ignoreMissing)
-                    THROW_FMT(FileMissingError, STORAGE_ERROR_READ_MISSING, strZ(this->interface.name));
+                    THROW_FMT(FileMissingError, STORAGE_ERROR_READ_MISSING, pathZ(this->interface.path));
             }
             else
             {
                 storageSftpEvalLibSsh2Error(
                     rc, libssh2_sftp_last_error(this->sftpSession), &FileOpenError,
-                    strNewFmt(STORAGE_ERROR_READ_OPEN, strZ(this->interface.name)), NULL);
+                    strNewFmt(STORAGE_ERROR_READ_OPEN, pathZ(this->interface.path)), NULL);
             }
         }
     }
@@ -149,17 +149,17 @@ storageReadSftp(THIS_VOID, Buffer *const buffer, const bool block)
 
                 // libssh2 sftp lseek seems to return LIBSSH2_FX_BAD_MESSAGE on a seek too far
                 if ((sftpErr = libssh2_sftp_last_error(this->sftpSession)) == LIBSSH2_FX_BAD_MESSAGE && this->interface.offset > 0)
-                    THROW_FMT(FileOpenError, STORAGE_ERROR_READ_SEEK, this->interface.offset, strZ(this->interface.name));
+                    THROW_FMT(FileOpenError, STORAGE_ERROR_READ_SEEK, this->interface.offset, pathZ(this->interface.path));
                 else
-                    THROW_FMT(FileReadError, "unable to read '%s': sftp errno [%" PRIu64 "]", strZ(this->interface.name), sftpErr);
+                    THROW_FMT(FileReadError, "unable to read '%s': sftp errno [%" PRIu64 "]", pathZ(this->interface.path), sftpErr);
             }
             else if (rc == LIBSSH2_ERROR_EAGAIN)
-                THROW_FMT(FileReadError, "timeout reading '%s'", strZ(this->interface.name));
+                THROW_FMT(FileReadError, "timeout reading '%s'", pathZ(this->interface.path));
             else
             {
                 storageSftpEvalLibSsh2Error(
                     (int)rc, libssh2_sftp_last_error(this->sftpSession), &FileReadError,
-                    strNewFmt("unable to read '%s'", strZ(this->interface.name)), NULL);
+                    strNewFmt("unable to read '%s'", pathZ(this->interface.path)), NULL);
             }
         }
 
@@ -205,14 +205,14 @@ storageReadSftpClose(THIS_VOID)
             if (rc != LIBSSH2_ERROR_EAGAIN)
                 THROW_FMT(
                     FileCloseError,
-                    STORAGE_ERROR_READ_CLOSE ": libssh2 errno [%d]%s", strZ(this->interface.name), rc,
+                    STORAGE_ERROR_READ_CLOSE ": libssh2 errno [%d]%s", pathZ(this->interface.path), rc,
                     rc == LIBSSH2_ERROR_SFTP_PROTOCOL ?
                         strZ(strNewFmt(": sftp errno [%lu]", libssh2_sftp_last_error(this->sftpSession))) : "");
             else
             {
                 storageSftpEvalLibSsh2Error(
                     rc, libssh2_sftp_last_error(this->sftpSession), &FileCloseError,
-                    strNewFmt("timeout closing file '%s'", strZ(this->interface.name)), NULL);
+                    strNewFmt("timeout closing file '%s'", pathZ(this->interface.path)), NULL);
             }
         }
     }
@@ -242,11 +242,11 @@ storageReadSftpEof(THIS_VOID)
 /**********************************************************************************************************************************/
 FN_EXTERN StorageRead *
 storageReadSftpNew(
-    StorageSftp *const storage, const String *const name, const bool ignoreMissing, LIBSSH2_SESSION *const session,
+    StorageSftp *const storage, const Path *const file, const bool ignoreMissing, LIBSSH2_SESSION *const session,
     LIBSSH2_SFTP *const sftpSession, LIBSSH2_SFTP_HANDLE *const sftpHandle, const uint64_t offset, const Variant *const limit)
 {
     FUNCTION_LOG_BEGIN(logLevelTrace);
-        FUNCTION_LOG_PARAM(STRING, name);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(BOOL, ignoreMissing);
         FUNCTION_LOG_PARAM_P(VOID, session);
         FUNCTION_LOG_PARAM_P(VOID, sftpSession);
@@ -255,7 +255,7 @@ storageReadSftpNew(
         FUNCTION_LOG_PARAM(VARIANT, limit);
     FUNCTION_LOG_END();
 
-    ASSERT(name != NULL);
+    ASSERT(file != NULL);
 
     OBJ_NEW_BEGIN(StorageReadSftp, .childQty = MEM_CONTEXT_QTY_MAX)
     {
@@ -274,7 +274,7 @@ storageReadSftpNew(
             .interface = (StorageReadInterface)
             {
                 .type = STORAGE_SFTP_TYPE,
-                .name = strDup(name),
+                .path = pathDup(file),
                 .ignoreMissing = ignoreMissing,
                 .offset = offset,
                 .limit = varDup(limit),

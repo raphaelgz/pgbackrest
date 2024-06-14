@@ -71,11 +71,11 @@ storageWriteModePath(const StorageWrite *const this)
     return THIS_PUB(StorageWrite)->interface->modePath;
 }
 
-// File name
-FN_INLINE_ALWAYS const String *
-storageWriteName(const StorageWrite *const this)
+// File path
+FN_INLINE_ALWAYS const Path *
+storageWritePath(const StorageWrite *const this)
 {
-    return THIS_PUB(StorageWrite)->interface->name;
+    return THIS_PUB(StorageWrite)->interface->path;
 }
 
 // Will the file be synced before it is closed?

@@ -20,9 +20,21 @@ storageCifsHelper(const unsigned int repoIdx, const bool write, StoragePathExpre
 
     ASSERT(cfgOptionIdxStrId(cfgOptRepoType, repoIdx) == STORAGE_CIFS_TYPE);
 
-    Storage *const result = storageCifsNew(
-        cfgOptionIdxStr(cfgOptRepoPath, repoIdx), STORAGE_MODE_FILE_DEFAULT, STORAGE_MODE_PATH_DEFAULT, write,
-        pathExpressionCallback);
+    Storage *result = NULL;
+
+    MEM_CONTEXT_TEMP_BEGIN();
+    {
+        const Path *const repoPath = pathNew(cfgOptionIdxStr(cfgOptRepoPath, repoIdx));
+
+        MEM_CONTEXT_PRIOR_BEGIN();
+        {
+            result = storageCifsNew(
+                    repoPath, STORAGE_MODE_FILE_DEFAULT, STORAGE_MODE_PATH_DEFAULT, write,
+                    pathExpressionCallback);
+        }
+        MEM_CONTEXT_PRIOR_END();
+    }
+    MEM_CONTEXT_TEMP_END();
 
     FUNCTION_LOG_RETURN(STORAGE, result);
 }

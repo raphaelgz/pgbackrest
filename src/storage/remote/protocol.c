@@ -160,7 +160,7 @@ storageRemoteFeatureProtocol(PackRead *const param, ProtocolServer *const server
 
         // Return storage features
         PackWrite *result = protocolPackNew();
-        pckWriteStrP(result, storagePathP(storage, NULL));
+        pckWriteStrP(result, pathStr(storagePathP(storage, NULL)));
         pckWriteU64P(result, storageInterface(storage).feature);
 
         protocolServerDataPut(server, result);
@@ -279,7 +279,7 @@ storageRemoteInfoProtocol(PackRead *const param, ProtocolServer *const server)
     MEM_CONTEXT_TEMP_BEGIN()
     {
         // Get file info
-        const String *file = pckReadStrP(param);
+        const Path *file = pathNew(pckReadStrP(param));
         StorageInfoLevel level = (StorageInfoLevel)pckReadU32P(param);
         bool followLink = pckReadBoolP(param);
 
@@ -315,8 +315,8 @@ storageRemoteLinkCreateProtocol(PackRead *const param, ProtocolServer *const ser
 
     MEM_CONTEXT_TEMP_BEGIN()
     {
-        const String *const target = pckReadStrP(param);
-        const String *const linkPath = pckReadStrP(param);
+        const Path *const target = pathNew(pckReadStrP(param));
+        const Path *const linkPath = pathNew(pckReadStrP(param));
         const StorageLinkType linkType = (StorageLinkType)pckReadU32P(param);
 
         storageInterfaceLinkCreateP(storageRemoteProtocolLocal.driver, target, linkPath, .linkType = linkType);
@@ -342,7 +342,7 @@ storageRemoteListProtocol(PackRead *const param, ProtocolServer *const server)
 
     MEM_CONTEXT_TEMP_BEGIN()
     {
-        const String *const path = pckReadStrP(param);
+        const Path *const path = pathNew(pckReadStrP(param));
         const StorageInfoLevel level = (StorageInfoLevel)pckReadU32P(param);
         StorageRemoteInfoProtocolWriteData writeData = {0};
         StorageList *const list = storageInterfaceListP(storageRemoteProtocolLocal.driver, path, level);
@@ -389,7 +389,7 @@ storageRemoteOpenReadProtocol(PackRead *const param, ProtocolServer *const serve
 
     MEM_CONTEXT_TEMP_BEGIN()
     {
-        const String *file = pckReadStrP(param);
+        const Path *file = pathNew(pckReadStrP(param));
         bool ignoreMissing = pckReadBoolP(param);
         const uint64_t offset = pckReadU64P(param);
         const Variant *const limit = pckReadNullP(param) ? NULL : VARUINT64(pckReadU64P(param));
@@ -460,7 +460,7 @@ storageRemoteOpenWriteProtocol(PackRead *const param, ProtocolServer *const serv
     MEM_CONTEXT_TEMP_BEGIN()
     {
         // Create the write object
-        const String *file = pckReadStrP(param);
+        const Path *file = pathNew(pckReadStrP(param));
         mode_t modeFile = pckReadModeP(param);
         mode_t modePath = pckReadModeP(param);
         const String *user = pckReadStrP(param);
@@ -546,7 +546,7 @@ storageRemotePathCreateProtocol(PackRead *const param, ProtocolServer *const ser
 
     MEM_CONTEXT_TEMP_BEGIN()
     {
-        const String *path = pckReadStrP(param);
+        const Path *path = pathNew(pckReadStrP(param));
         bool errorOnExists = pckReadBoolP(param);
         bool noParentCreate = pckReadBoolP(param);
         mode_t mode = pckReadModeP(param);
@@ -574,7 +574,7 @@ storageRemotePathRemoveProtocol(PackRead *const param, ProtocolServer *const ser
 
     MEM_CONTEXT_TEMP_BEGIN()
     {
-        const String *path = pckReadStrP(param);
+        const Path *path = pathNew(pckReadStrP(param));
         bool recurse = pckReadBoolP(param);
 
         const bool result = storageInterfacePathRemoveP(storageRemoteProtocolLocal.driver, path, recurse);
@@ -602,7 +602,7 @@ storageRemotePathSyncProtocol(PackRead *const param, ProtocolServer *const serve
 
     MEM_CONTEXT_TEMP_BEGIN()
     {
-        const String *path = pckReadStrP(param);
+        const Path *path = pathNew(pckReadStrP(param));
 
         storageInterfacePathSyncP(storageRemoteProtocolLocal.driver, path);
         protocolServerDataEndPut(server);
@@ -627,7 +627,7 @@ storageRemoteRemoveProtocol(PackRead *const param, ProtocolServer *const server)
 
     MEM_CONTEXT_TEMP_BEGIN()
     {
-        const String *file = pckReadStrP(param);
+        const Path *file = pathNew(pckReadStrP(param));
         bool errorOnMissing = pckReadBoolP(param);
 
         storageInterfaceRemoveP(storageRemoteProtocolLocal.driver, file, .errorOnMissing = errorOnMissing);

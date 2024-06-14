@@ -17,7 +17,7 @@ Object type
 struct StorageIterator
 {
     void *driver;                                                   // Storage driver
-    const String *path;                                             // Path to iterate
+    const Path *path;                                               // Path to iterate
     StorageInfoLevel level;                                         // Info level
     bool recurse;                                                   // Recurse into paths
     SortOrder sortOrder;                                            // Sort order
@@ -62,10 +62,13 @@ storageItrPathAdd(StorageIterator *const this, const String *const pathSub)
 
     MEM_CONTEXT_TEMP_BEGIN()
     {
+        const Path *path = this->path;
+
+        if (pathSub == NULL)
+            path = pathNewAbsolute(pathSub, this->path);
+
         // Get path content
-        StorageList *const list = storageInterfaceListP(
-            this->driver, pathSub == NULL ? this->path : strNewFmt("%s/%s", strZ(this->path), strZ(pathSub)), this->level,
-            .expression = this->expression);
+        StorageList *const list = storageInterfaceListP(this->driver, path, this->level, .expression = this->expression);
 
         // If path exists
         if (list != NULL)
@@ -110,12 +113,12 @@ storageItrPathAdd(StorageIterator *const this, const String *const pathSub)
 /**********************************************************************************************************************************/
 FN_EXTERN StorageIterator *
 storageItrNew(
-    void *const driver, const String *const path, const StorageInfoLevel level, const bool errorOnMissing, const bool nullOnMissing,
+    void *const driver, const Path *const path, const StorageInfoLevel level, const bool errorOnMissing, const bool nullOnMissing,
     const bool recurse, const SortOrder sortOrder, const String *const expression)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM_P(VOID, driver);
-        FUNCTION_LOG_PARAM(STRING, path);
+        FUNCTION_LOG_PARAM(PATH, path);
         FUNCTION_LOG_PARAM(ENUM, level);
         FUNCTION_LOG_PARAM(BOOL, errorOnMissing);
         FUNCTION_LOG_PARAM(BOOL, nullOnMissing);
@@ -139,7 +142,7 @@ storageItrNew(
             *this = (StorageIterator)
             {
                 .driver = driver,
-                .path = strDup(path),
+                .path = pathDup(path),
                 .level = level,
                 .recurse = recurse,
                 .sortOrder = sortOrder,
@@ -158,7 +161,7 @@ storageItrNew(
             {
                 // Throw an error when requested
                 if (errorOnMissing)
-                    THROW_FMT(PathMissingError, STORAGE_ERROR_LIST_INFO_MISSING, strZ(this->path));
+                    THROW_FMT(PathMissingError, STORAGE_ERROR_LIST_INFO_MISSING, pathZ(this->path));
 
                 // Return NULL when requested
                 if (nullOnMissing)

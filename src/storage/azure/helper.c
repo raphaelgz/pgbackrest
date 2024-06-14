@@ -74,10 +74,12 @@ storageAzureHelper(const unsigned int repoIdx, const bool write, StoragePathExpr
         if (cfgOptionIdxSource(cfgOptRepoStoragePort, repoIdx) != cfgSourceDefault)
             port = cfgOptionIdxUInt(cfgOptRepoStoragePort, repoIdx);
 
+        const Path *const repoPath = pathNew(cfgOptionIdxStr(cfgOptRepoPath, repoIdx));
+
         MEM_CONTEXT_PRIOR_BEGIN()
         {
             result = storageAzureNew(
-                cfgOptionIdxStr(cfgOptRepoPath, repoIdx), write, pathExpressionCallback,
+                repoPath, write, pathExpressionCallback,
                 cfgOptionIdxStr(cfgOptRepoAzureContainer, repoIdx), cfgOptionIdxStr(cfgOptRepoAzureAccount, repoIdx), keyType, key,
                 (size_t)cfgOptionIdxUInt64(cfgOptRepoStorageUploadChunkSize, repoIdx),
                 cfgOptionIdxKvNull(cfgOptRepoStorageTag, repoIdx), endpoint, uriStyle, port, ioTimeoutMs(),

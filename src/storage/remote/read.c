@@ -222,7 +222,7 @@ storageReadRemoteOpen(THIS_VOID)
         ProtocolCommand *command = protocolCommandNew(PROTOCOL_COMMAND_STORAGE_OPEN_READ);
         PackWrite *const param = protocolCommandParam(command);
 
-        pckWriteStrP(param, this->interface.name);
+        pckWriteStrP(param, pathStr(this->interface.path));
         pckWriteBoolP(param, this->interface.ignoreMissing);
         pckWriteU64P(param, this->interface.offset);
 
@@ -283,13 +283,13 @@ storageReadRemoteClose(THIS_VOID)
 /**********************************************************************************************************************************/
 FN_EXTERN StorageRead *
 storageReadRemoteNew(
-    StorageRemote *const storage, ProtocolClient *const client, const String *const name, const bool ignoreMissing,
+    StorageRemote *const storage, ProtocolClient *const client, const Path *const file, const bool ignoreMissing,
     const bool compressible, const unsigned int compressLevel, const uint64_t offset, const Variant *const limit)
 {
     FUNCTION_LOG_BEGIN(logLevelTrace);
         FUNCTION_LOG_PARAM(STORAGE_REMOTE, storage);
         FUNCTION_LOG_PARAM(PROTOCOL_CLIENT, client);
-        FUNCTION_LOG_PARAM(STRING, name);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(BOOL, ignoreMissing);
         FUNCTION_LOG_PARAM(BOOL, compressible);
         FUNCTION_LOG_PARAM(UINT, compressLevel);
@@ -299,7 +299,7 @@ storageReadRemoteNew(
 
     ASSERT(storage != NULL);
     ASSERT(client != NULL);
-    ASSERT(name != NULL);
+    ASSERT(file != NULL);
 
     OBJ_NEW_BEGIN(StorageReadRemote, .childQty = MEM_CONTEXT_QTY_MAX, .callbackQty = 1)
     {
@@ -311,7 +311,7 @@ storageReadRemoteNew(
             .interface = (StorageReadInterface)
             {
                 .type = STORAGE_REMOTE_TYPE,
-                .name = strDup(name),
+                .path = pathDup(file),
                 .compressible = compressible,
                 .compressLevel = compressLevel,
                 .ignoreMissing = ignoreMissing,

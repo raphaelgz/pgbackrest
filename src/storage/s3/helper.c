@@ -75,13 +75,17 @@ storageS3Helper(const unsigned int repoIdx, const bool write, StoragePathExpress
             }
 
             role = strNewZ(roleZ);
-            webIdToken = strNewBuf(storageGetP(storageNewReadP(storagePosixNewP(FSLASH_STR), STR(webIdTokenFileZ))));
+            const Path *const webIdTokenFilePath = pathNewZ(webIdTokenFileZ);
+
+            webIdToken = strNewBuf(storageGetP(storageNewReadP(storagePosixNewStrP(FSLASH_STR), webIdTokenFilePath)));
         }
+
+        const Path *const repoPath = pathNew(cfgOptionIdxStr(cfgOptRepoPath, repoIdx));
 
         MEM_CONTEXT_PRIOR_BEGIN()
         {
             result = storageS3New(
-                cfgOptionIdxStr(cfgOptRepoPath, repoIdx), write, pathExpressionCallback,
+                repoPath, write, pathExpressionCallback,
                 cfgOptionIdxStr(cfgOptRepoS3Bucket, repoIdx), endPoint,
                 (StorageS3UriStyle)cfgOptionIdxStrId(cfgOptRepoS3UriStyle, repoIdx), cfgOptionIdxStr(cfgOptRepoS3Region, repoIdx),
                 keyType, cfgOptionIdxStrNull(cfgOptRepoS3Key, repoIdx), cfgOptionIdxStrNull(cfgOptRepoS3KeySecret, repoIdx),

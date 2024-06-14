@@ -792,13 +792,13 @@ storageGcsListInternal(
 
 /**********************************************************************************************************************************/
 static StorageInfo
-storageGcsInfo(THIS_VOID, const String *const file, const StorageInfoLevel level, const StorageInterfaceInfoParam param)
+storageGcsInfo(THIS_VOID, const Path *const file, const StorageInfoLevel level, const StorageInterfaceInfoParam param)
 {
     THIS(StorageGcs);
 
     FUNCTION_LOG_BEGIN(logLevelTrace);
         FUNCTION_LOG_PARAM(STORAGE_GCS, this);
-        FUNCTION_LOG_PARAM(STRING, file);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(ENUM, level);
         (void)param;                                                // No parameters are used
     FUNCTION_LOG_END();
@@ -812,7 +812,7 @@ storageGcsInfo(THIS_VOID, const String *const file, const StorageInfoLevel level
     {
         // Attempt to get file info
         HttpResponse *const httpResponse = storageGcsRequestP(
-            this, HTTP_VERB_GET_STR, .object = file, .allowMissing = true,
+            this, HTTP_VERB_GET_STR, .object = pathStr(file), .allowMissing = true,
             .query = httpQueryAdd(
                 httpQueryNewP(), GCS_QUERY_FIELDS_STR,
                 level >= storageInfoLevelBasic ? STRDEF(GCS_JSON_SIZE "," GCS_JSON_UPDATED) : EMPTY_STR));
@@ -852,13 +852,13 @@ storageGcsListCallback(void *const callbackData, const StorageInfo *const info)
 }
 
 static StorageList *
-storageGcsList(THIS_VOID, const String *const path, const StorageInfoLevel level, const StorageInterfaceListParam param)
+storageGcsList(THIS_VOID, const Path *const path, const StorageInfoLevel level, const StorageInterfaceListParam param)
 {
     THIS(StorageGcs);
 
     FUNCTION_LOG_BEGIN(logLevelTrace);
         FUNCTION_LOG_PARAM(STORAGE_GCS, this);
-        FUNCTION_LOG_PARAM(STRING, path);
+        FUNCTION_LOG_PARAM(PATH, path);
         FUNCTION_LOG_PARAM(ENUM, level);
         FUNCTION_LOG_PARAM(STRING, param.expression);
     FUNCTION_LOG_END();
@@ -868,20 +868,20 @@ storageGcsList(THIS_VOID, const String *const path, const StorageInfoLevel level
 
     StorageList *const result = storageLstNew(level);
 
-    storageGcsListInternal(this, path, level, param.expression, false, storageGcsListCallback, result);
+    storageGcsListInternal(this, pathStr(path), level, param.expression, false, storageGcsListCallback, result);
 
     FUNCTION_LOG_RETURN(STORAGE_LIST, result);
 }
 
 /**********************************************************************************************************************************/
 static StorageRead *
-storageGcsNewRead(THIS_VOID, const String *const file, const bool ignoreMissing, const StorageInterfaceNewReadParam param)
+storageGcsNewRead(THIS_VOID, const Path *const file, const bool ignoreMissing, const StorageInterfaceNewReadParam param)
 {
     THIS(StorageGcs);
 
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE_GCS, this);
-        FUNCTION_LOG_PARAM(STRING, file);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(BOOL, ignoreMissing);
         FUNCTION_LOG_PARAM(UINT64, param.offset);
         FUNCTION_LOG_PARAM(VARIANT, param.limit);
@@ -895,13 +895,13 @@ storageGcsNewRead(THIS_VOID, const String *const file, const bool ignoreMissing,
 
 /**********************************************************************************************************************************/
 static StorageWrite *
-storageGcsNewWrite(THIS_VOID, const String *const file, const StorageInterfaceNewWriteParam param)
+storageGcsNewWrite(THIS_VOID, const Path *const file, const StorageInterfaceNewWriteParam param)
 {
     THIS(StorageGcs);
 
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE_GCS, this);
-        FUNCTION_LOG_PARAM(STRING, file);
+        FUNCTION_LOG_PARAM(PATH, file);
         (void)param;                                                // No parameters are used
     FUNCTION_LOG_END();
 
@@ -1056,13 +1056,13 @@ storageGcsPathRemoveCallback(void *const callbackData, const StorageInfo *const 
 }
 
 static bool
-storageGcsPathRemove(THIS_VOID, const String *const path, const bool recurse, const StorageInterfacePathRemoveParam param)
+storageGcsPathRemove(THIS_VOID, const Path *const path, const bool recurse, const StorageInterfacePathRemoveParam param)
 {
     THIS(StorageGcs);
 
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE_GCS, this);
-        FUNCTION_LOG_PARAM(STRING, path);
+        FUNCTION_LOG_PARAM(PATH, path);
         FUNCTION_LOG_PARAM(BOOL, recurse);
         (void)param;                                                // No parameters are used
     FUNCTION_LOG_END();
@@ -1076,12 +1076,12 @@ storageGcsPathRemove(THIS_VOID, const String *const path, const bool recurse, co
         {
             .this = this,
             .memContext = memContextCurrent(),
-            .path = strEq(path, FSLASH_STR) ? EMPTY_STR : path,
+            .path = pathIsRoot(path) ? EMPTY_STR : pathStr(path),
         };
 
         MEM_CONTEXT_TEMP_BEGIN()
         {
-            storageGcsListInternal(this, path, storageInfoLevelType, NULL, true, storageGcsPathRemoveCallback, &data);
+            storageGcsListInternal(this, pathStr(path), storageInfoLevelType, NULL, true, storageGcsPathRemoveCallback, &data);
 
             // Call if there is more to be removed
             if (data.contentList != NULL)
@@ -1099,13 +1099,13 @@ storageGcsPathRemove(THIS_VOID, const String *const path, const bool recurse, co
 
 /**********************************************************************************************************************************/
 static void
-storageGcsRemove(THIS_VOID, const String *const file, const StorageInterfaceRemoveParam param)
+storageGcsRemove(THIS_VOID, const Path *const file, const StorageInterfaceRemoveParam param)
 {
     THIS(StorageGcs);
 
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE_GCS, this);
-        FUNCTION_LOG_PARAM(STRING, file);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(BOOL, param.errorOnMissing);
     FUNCTION_LOG_END();
 
@@ -1114,7 +1114,7 @@ storageGcsRemove(THIS_VOID, const String *const file, const StorageInterfaceRemo
     ASSERT(!param.errorOnMissing);
 
     statInc(GCS_STAT_REMOVE_STR);
-    httpResponseFree(storageGcsRequestP(this, HTTP_VERB_DELETE_STR, .object = file, .allowMissing = true));
+    httpResponseFree(storageGcsRequestP(this, HTTP_VERB_DELETE_STR, .object = pathStr(file), .allowMissing = true));
 
     FUNCTION_LOG_RETURN_VOID();
 }
@@ -1132,13 +1132,13 @@ static const StorageInterface storageInterfaceGcs =
 
 FN_EXTERN Storage *
 storageGcsNew(
-    const String *const path, const bool write, StoragePathExpressionCallback pathExpressionFunction, const String *const bucket,
+    const Path *const path, const bool write, StoragePathExpressionCallback pathExpressionFunction, const String *const bucket,
     const StorageGcsKeyType keyType, const String *const key, const size_t chunkSize, const KeyValue *const tag,
     const String *const endpoint, const TimeMSec timeout, const bool verifyPeer, const String *const caFile,
     const String *const caPath)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
-        FUNCTION_LOG_PARAM(STRING, path);
+        FUNCTION_LOG_PARAM(PATH, path);
         FUNCTION_LOG_PARAM(BOOL, write);
         FUNCTION_LOG_PARAM(FUNCTIONP, pathExpressionFunction);
         FUNCTION_LOG_PARAM(STRING, bucket);

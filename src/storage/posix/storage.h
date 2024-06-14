@@ -26,6 +26,10 @@ typedef struct StoragePosixNewParam
 #define storagePosixNewP(path, ...)                                                                                                \
     storagePosixNew(path, (StoragePosixNewParam){VAR_PARAM_INIT, __VA_ARGS__})
 
-FN_EXTERN Storage *storagePosixNew(const String *path, StoragePosixNewParam param);
+#define storagePosixNewStrP(path, ...)                                                                                                \
+    storagePosixNewStr(path, (StoragePosixNewParam){VAR_PARAM_INIT, __VA_ARGS__})
+
+FN_EXTERN Storage *storagePosixNew(const Path *path, StoragePosixNewParam param);
+FN_EXTERN Storage *storagePosixNewStr(const String *path, StoragePosixNewParam param);
 
 #endif

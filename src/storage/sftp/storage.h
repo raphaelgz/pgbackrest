@@ -42,7 +42,7 @@ typedef struct StorageSftpNewParam
     storageSftpNew(path, host, port, user, timeout, keyPriv, hostKeyHashType, (StorageSftpNewParam){VAR_PARAM_INIT, __VA_ARGS__})
 
 FN_EXTERN Storage *storageSftpNew(
-    const String *path, const String *host, unsigned int port, const String *user, TimeMSec timeout, const String *keyPriv,
+    const Path *path, const String *host, unsigned int port, const String *user, TimeMSec timeout, const String *keyPriv,
     StringId hostKeyHashType, const StorageSftpNewParam param);
 
 #endif // HAVE_LIBSSH2

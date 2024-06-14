@@ -50,7 +50,7 @@ storageReadPosixFreeResource(THIS_VOID)
     ASSERT(this != NULL);
 
     if (this->fd != -1)
-        THROW_ON_SYS_ERROR_FMT(close(this->fd) == -1, FileCloseError, STORAGE_ERROR_READ_CLOSE, strZ(this->interface.name));
+        THROW_ON_SYS_ERROR_FMT(close(this->fd) == -1, FileCloseError, STORAGE_ERROR_READ_CLOSE, pathZ(this->interface.path));
 
     FUNCTION_LOG_RETURN_VOID();
 }
@@ -71,7 +71,7 @@ storageReadPosixOpen(THIS_VOID)
     ASSERT(this->fd == -1);
 
     // Open the file
-    this->fd = open(strZ(this->interface.name), O_RDONLY, 0);
+    this->fd = open(pathZ(this->interface.path), O_RDONLY, 0);
 
     // Handle errors
     if (this->fd == -1)
@@ -79,10 +79,10 @@ storageReadPosixOpen(THIS_VOID)
         if (errno == ENOENT)                                                                                        // {vm_covered}
         {
             if (!this->interface.ignoreMissing)
-                THROW_FMT(FileMissingError, STORAGE_ERROR_READ_MISSING, strZ(this->interface.name));
+                THROW_FMT(FileMissingError, STORAGE_ERROR_READ_MISSING, pathZ(this->interface.path));
         }
         else
-            THROW_SYS_ERROR_FMT(FileOpenError, STORAGE_ERROR_READ_OPEN, strZ(this->interface.name));                // {vm_covered}
+            THROW_SYS_ERROR_FMT(FileOpenError, STORAGE_ERROR_READ_OPEN, pathZ(this->interface.path));                // {vm_covered}
     }
     // Else success
     else
@@ -95,7 +95,7 @@ storageReadPosixOpen(THIS_VOID)
         {
             THROW_ON_SYS_ERROR_FMT(
                 lseek(this->fd, (off_t)this->interface.offset, SEEK_SET) == -1, FileOpenError, STORAGE_ERROR_READ_SEEK,
-                this->interface.offset, strZ(this->interface.name));
+                this->interface.offset, pathZ(this->interface.path));
         }
     }
 
@@ -135,7 +135,7 @@ storageReadPosix(THIS_VOID, Buffer *const buffer, const bool block)
 
         // Error occurred during read
         if (actualBytes == -1)
-            THROW_SYS_ERROR_FMT(FileReadError, "unable to read '%s'", strZ(this->interface.name));
+            THROW_SYS_ERROR_FMT(FileReadError, "unable to read '%s'", pathZ(this->interface.path));
 
         // Update amount of buffer used
         bufUsedInc(buffer, (size_t)actualBytes);
@@ -208,17 +208,17 @@ storageReadPosixFd(const THIS_VOID)
 /**********************************************************************************************************************************/
 FN_EXTERN StorageRead *
 storageReadPosixNew(
-    StoragePosix *const storage, const String *const name, const bool ignoreMissing, const uint64_t offset,
+    StoragePosix *const storage, const Path *const file, const bool ignoreMissing, const uint64_t offset,
     const Variant *const limit)
 {
     FUNCTION_LOG_BEGIN(logLevelTrace);
-        FUNCTION_LOG_PARAM(STRING, name);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(BOOL, ignoreMissing);
         FUNCTION_LOG_PARAM(UINT64, offset);
         FUNCTION_LOG_PARAM(VARIANT, limit);
     FUNCTION_LOG_END();
 
-    ASSERT(name != NULL);
+    ASSERT(file != NULL);
 
     OBJ_NEW_BEGIN(StorageReadPosix, .childQty = MEM_CONTEXT_QTY_MAX, .callbackQty = 1)
     {
@@ -235,7 +235,7 @@ storageReadPosixNew(
             .interface = (StorageReadInterface)
             {
                 .type = STORAGE_POSIX_TYPE,
-                .name = strDup(name),
+                .path = pathDup(file),
                 .ignoreMissing = ignoreMissing,
                 .offset = offset,
                 .limit = varDup(limit),

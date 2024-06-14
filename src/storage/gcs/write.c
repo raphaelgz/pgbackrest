@@ -97,7 +97,7 @@ storageWriteGcsVerify(StorageWriteGcs *const this, HttpResponse *const response)
         {
             THROW_FMT(
                 FormatError, "expected md5 '%s' for '%s' but actual is '%s'", strZ(strNewEncode(encodingHex, md5expected)),
-                strZ(this->interface.name), strZ(strNewEncode(encodingHex, md5actual)));
+                pathZ(this->interface.path), strZ(strNewEncode(encodingHex, md5actual)));
         }
 
         // Check the size when available
@@ -110,7 +110,7 @@ storageWriteGcsVerify(StorageWriteGcs *const this, HttpResponse *const response)
             if (size != this->uploadTotal)
             {
                 THROW_FMT(
-                    FormatError, "expected size %" PRIu64 " for '%s' but actual is %" PRIu64, size, strZ(this->interface.name),
+                    FormatError, "expected size %" PRIu64 " for '%s' but actual is %" PRIu64, size, pathZ(this->interface.path),
                     this->uploadTotal);
             }
         }
@@ -168,7 +168,7 @@ storageWriteGcsBlockAsync(StorageWriteGcs *const this, const bool done)
 
         // Build query
         HttpQuery *const query = httpQueryNewP();
-        httpQueryAdd(query, GCS_QUERY_NAME_STR, strSub(this->interface.name, 1));
+        httpQueryAdd(query, GCS_QUERY_NAME_STR, strSub(pathStr(this->interface.path), 1));
         httpQueryAdd(query, GCS_QUERY_UPLOAD_TYPE_STR, GCS_QUERY_RESUMABLE_STR);
 
         // Get the upload id
@@ -299,7 +299,7 @@ storageWriteGcsClose(THIS_VOID)
 
                 // Upload file
                 HttpQuery *query = httpQueryNewP();
-                httpQueryAdd(query, GCS_QUERY_NAME_STR, strSub(this->interface.name, 1));
+                httpQueryAdd(query, GCS_QUERY_NAME_STR, strSub(pathStr(this->interface.path), 1));
                 httpQueryAdd(query, GCS_QUERY_UPLOAD_TYPE_STR, GCS_QUERY_MEDIA_STR);
                 httpQueryAdd(query, GCS_QUERY_FIELDS_STR, GCS_QUERY_FIELDS_VALUE_STR);
 
@@ -322,17 +322,17 @@ storageWriteGcsClose(THIS_VOID)
 
 /**********************************************************************************************************************************/
 FN_EXTERN StorageWrite *
-storageWriteGcsNew(StorageGcs *const storage, const String *const name, const size_t chunkSize, const bool tag)
+storageWriteGcsNew(StorageGcs *const storage, const Path *const file, const size_t chunkSize, const bool tag)
 {
     FUNCTION_LOG_BEGIN(logLevelTrace);
         FUNCTION_LOG_PARAM(STORAGE_GCS, storage);
-        FUNCTION_LOG_PARAM(STRING, name);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(UINT64, chunkSize);
         FUNCTION_LOG_PARAM(BOOL, tag);
     FUNCTION_LOG_END();
 
     ASSERT(storage != NULL);
-    ASSERT(name != NULL);
+    ASSERT(file != NULL);
 
     OBJ_NEW_BEGIN(StorageWriteGcs, .childQty = MEM_CONTEXT_QTY_MAX)
     {
@@ -345,7 +345,7 @@ storageWriteGcsNew(StorageGcs *const storage, const String *const name, const si
             .interface = (StorageWriteInterface)
             {
                 .type = STORAGE_GCS_TYPE,
-                .name = strDup(name),
+                .path = pathDup(file),
                 .atomic = true,
                 .createPath = true,
                 .syncFile = true,

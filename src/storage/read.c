@@ -62,6 +62,7 @@ storageReadToLog(const StorageRead *const this, StringStatic *const debugLog)
 {
     strStcCat(debugLog, "{type: ");
     strStcResultSizeInc(debugLog, strIdToLog(storageReadType(this), strStcRemains(debugLog), strStcRemainsSize(debugLog)));
-    strStcFmt(
-        debugLog, ", name: %s, ignoreMissing: %s}", strZ(storageReadName(this)), cvtBoolToConstZ(storageReadIgnoreMissing(this)));
+    strStcCat(debugLog, ", path: ");
+    pathToLog(storageReadPath(this), debugLog);
+    strStcFmt(debugLog, ", ignoreMissing: %s}", cvtBoolToConstZ(storageReadIgnoreMissing(this)));
 }

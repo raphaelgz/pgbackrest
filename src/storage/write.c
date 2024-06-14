@@ -65,10 +65,11 @@ storageWriteToLog(const StorageWrite *const this, StringStatic *const debugLog)
 {
     strStcCat(debugLog, "{type: ");
     strStcResultSizeInc(debugLog, strIdToLog(storageWriteType(this), strStcRemains(debugLog), strStcRemainsSize(debugLog)));
-
+    strStcCat(debugLog, ", path: ");
+    pathToLog(storageWritePath(this), debugLog);
     strStcFmt(
-        debugLog, ", name: %s, modeFile: %04o, modePath: %04o, createPath: %s, syncFile: %s, syncPath: %s, atomic: %s}",
-        strZ(storageWriteName(this)), storageWriteModeFile(this), storageWriteModePath(this),
+        debugLog, ", modeFile: %04o, modePath: %04o, createPath: %s, syncFile: %s, syncPath: %s, atomic: %s}",
+        storageWriteModeFile(this), storageWriteModePath(this),
         cvtBoolToConstZ(storageWriteCreatePath(this)), cvtBoolToConstZ(storageWriteSyncFile(this)),
         cvtBoolToConstZ(storageWriteSyncPath(this)), cvtBoolToConstZ(storageWriteAtomic(this)));
 }

@@ -65,6 +65,7 @@ typedef struct StorageInfo
     gid_t groupId;                                                  // Group that owns the file
     const String *user;                                             // Name of user that owns the file
     const String *group;                                            // Name of group that owns the file
+    /* FIXME: change to Path *?*/
     const String *linkDestination;                                  // Destination if this is a link
 } StorageInfo;
 
