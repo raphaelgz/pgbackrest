@@ -9,15 +9,6 @@
 /***********************************************************************************************************************************
 Object types
 ***********************************************************************************************************************************/
-typedef enum
-{
-    pathRootNone,
-    pathRootSlash,
-    pathRootExpression,
-//    pathRootDrive,
-//    pathRootUNC,
-} PathRootType;
-
 struct Path
 {
     PathRootType rootType;
@@ -286,7 +277,7 @@ pathClean(Path *this)
 
     ASSERT(this != NULL);
 
-    if (pathHasPart(this, pathPartDirectory))
+    if (this->folders != NULL)
     {
         unsigned int folderIdx = 0;
 
@@ -317,9 +308,45 @@ pathClean(Path *this)
                 folderIdx++;
             }
         }
+
+        if (this->rootType != pathRootNone)
+        {
+            if (strLstSize(this->folders) > 0 && strEqZ(strLstGet(this->folders, 0), ".."))
+                THROW(AssertError, "the path cannot go back past the root");
+        }
     }
 
     FUNCTION_TEST_RETURN_VOID();
+}
+
+/**********************************************************************************************************************************/
+static Path *
+pathJoin(const Path *this, const Path *basePath)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(PATH, this);
+        FUNCTION_TEST_PARAM(PATH, basePath);
+    FUNCTION_TEST_END();
+
+    ASSERT(this != NULL);
+    ASSERT(basePath != NULL);
+    ASSERT(pathGetFileName(basePath) == NULL);
+
+    Path *result = pathDup(basePath);
+
+    MEM_CONTEXT_OBJ_BEGIN(result);
+    {
+        for (unsigned int idx = 0; idx < strLstSize(this->folders); idx++)
+            strLstAdd(result->folders, strLstGet(this->folders, idx));
+
+        if (this->fileName != NULL)
+            result->fileName = strDup(this->fileName);
+
+        pathClean(result);
+    }
+    MEM_CONTEXT_OBJ_END();
+
+    FUNCTION_TEST_RETURN(PATH, result);
 }
 
 /**********************************************************************************************************************************/
@@ -423,7 +450,7 @@ pathIsRoot(const Path *this)
 
     FUNCTION_TEST_RETURN(
         BOOL,
-        pathHasPart(this, pathPartRoot) && !pathHasPart(this, pathPartDirectory) && !pathHasPart(this, pathPartFile));
+        this->rootType != pathRootNone && pathGetFolderCount(this) == 0 && pathGetFileName(this) == NULL);
 }
 
 /**********************************************************************************************************************************/
@@ -436,7 +463,7 @@ pathIsAbsolute(const Path *this)
 
     ASSERT(this != NULL);
 
-    FUNCTION_TEST_RETURN(BOOL, pathHasPart(this, pathPartRoot));
+    FUNCTION_TEST_RETURN(BOOL, this->rootType != pathRootNone);
 }
 
 /**********************************************************************************************************************************/
@@ -449,7 +476,7 @@ pathIsRelative(const Path *this)
 
     ASSERT(this != NULL);
 
-    FUNCTION_TEST_RETURN(BOOL, !pathHasPart(this, pathPartRoot));
+    FUNCTION_TEST_RETURN(BOOL, this->rootType == pathRootNone);
 }
 
 /**********************************************************************************************************************************/
@@ -465,24 +492,24 @@ pathIsRelativeTo(const Path *this, const Path *basePath)
     ASSERT(basePath != NULL);
     ASSERT(pathIsAbsolute(this));
     ASSERT(pathIsAbsolute(basePath));
-    ASSERT(!pathHasPart(basePath, pathPartFile)); // No path can be relative to a file
+    ASSERT(pathGetFileName(basePath) == NULL); // No path can be relative to a file
 
     bool result = false;
 
     // Both paths must be based on the same root
-    if (this->rootType == basePath->rootType && strCmp(this->root, basePath->root) == 0)
+    if (this->rootType == basePath->rootType && strEq(this->root, basePath->root))
     {
-        if (!pathHasPart(basePath, pathPartDirectory))
+        if (pathIsRoot(basePath))
         {
             result = true;
         }
-        else if (pathHasPart(this, pathPartDirectory) && strLstSize(this->folders) >= strLstSize(basePath->folders))
+        else if (pathGetFolderCount(this) > 0 && pathGetFolderCount(this) >= pathGetFolderCount(basePath))
         {
             result = true;
 
-            for (unsigned int idx = 0; idx < strLstSize(basePath->folders); idx++)
+            for (unsigned int idx = 0; idx < pathGetFolderCount(basePath); idx++)
             {
-                if (strCmp(strLstGet(this->folders, idx), strLstGet(basePath->folders, idx)) != 0)
+                if (!strEq(pathGetFolder(this, idx), pathGetFolder(basePath, idx)))
                 {
                     result = false;
                     break;
@@ -495,75 +522,186 @@ pathIsRelativeTo(const Path *this, const Path *basePath)
 }
 
 /**********************************************************************************************************************************/
-FN_EXTERN bool
-pathHasPart(const Path *this, PathPart part)
+FN_EXTERN PathRootType
+pathGetRootType(const Path *const this)
 {
     FUNCTION_TEST_BEGIN();
         FUNCTION_TEST_PARAM(PATH, this);
-        FUNCTION_TEST_PARAM(ENUM, part);
     FUNCTION_TEST_END();
 
     ASSERT(this != NULL);
 
-    bool result = false;
-
-    switch (part)
-    {
-        case pathPartRoot:
-            result = this->rootType != pathRootNone;
-            break;
-
-        case pathPartDirectory:
-            result = this->folders != NULL && !strLstEmpty(this->folders);
-            break;
-
-        case pathPartFile:
-            result = this->fileName != NULL && !strEmpty(this->fileName);
-            break;
-    }
-
-    FUNCTION_TEST_RETURN(BOOL, result);
+    FUNCTION_TEST_RETURN(ENUM, this->rootType);
 }
 
 /**********************************************************************************************************************************/
-FN_EXTERN String *
-pathGetPartStr(const Path *this, PathPart part)
+FN_EXTERN const String *
+pathGetRoot(const Path *this)
 {
     FUNCTION_TEST_BEGIN();
         FUNCTION_TEST_PARAM(PATH, this);
-        FUNCTION_TEST_PARAM(ENUM, part);
     FUNCTION_TEST_END();
 
     ASSERT(this != NULL);
 
     String *result = NULL;
 
-    if (pathHasPart(this, part))
-    {
-        switch (part)
-        {
-            case pathPartRoot:
-                result = strDup(this->root);
-                break;
+    switch (this->rootType) {
+        case pathRootExpression:
+        case pathRootSlash:
+            result = this->root;
+            break;
 
-            case pathPartDirectory:
-                result = strNew();
-
-                for (unsigned int idx = 0; idx < strLstSize(this->folders); idx++)
-                {
-                    result = strCat(result, strLstGet(this->folders, idx));
-                    result = strCatChr(result, '/');
-                }
-                break;
-
-            case pathPartFile:
-                result = strDup(this->fileName);
-                break;
-        }
+        case pathRootNone:
+            break;
     }
 
     FUNCTION_TEST_RETURN(STRING, result);
 }
+
+/**********************************************************************************************************************************/
+FN_EXTERN const String *
+pathGetFolder(const Path *this, unsigned int idx)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(PATH, this);
+    FUNCTION_TEST_END();
+
+    ASSERT(this != NULL);
+    ASSERT(idx < pathGetFolderCount(this));
+
+    FUNCTION_TEST_RETURN(STRING, strLstGet(this->folders, idx));
+}
+
+/**********************************************************************************************************************************/
+FN_EXTERN unsigned int
+pathGetFolderCount(const Path *this)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(PATH, this);
+    FUNCTION_TEST_END();
+
+    ASSERT(this != NULL);
+
+    FUNCTION_TEST_RETURN(UINT, this->folders == NULL ? 0 : strLstSize(this->folders));
+}
+
+/**********************************************************************************************************************************/
+FN_EXTERN const String *
+pathGetFileName(const Path *this)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(PATH, this);
+    FUNCTION_TEST_END();
+
+    ASSERT(this != NULL);
+
+    String *result = NULL;
+
+    if (this->fileName != NULL && !strEmpty(this->fileName))
+        result = this->fileName;
+
+    FUNCTION_TEST_RETURN(STRING, result);
+}
+
+/**********************************************************************************************************************************/
+FN_EXTERN Path *
+pathGetParent(const Path *this)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(PATH, this);
+    FUNCTION_TEST_END();
+
+    ASSERT(this != NULL);
+
+    Path *result = pathDup(this);
+
+    // The parent of a file path is its containing directory
+    if (pathGetFileName(result) != NULL)
+    {
+        strFree(result->fileName);
+        result->fileName = NULL;
+    }
+    // Go back one level only if the directory part is present, so we don't try to go back past de root
+    else if (pathGetFolderCount(result) > 0)
+    {
+        pathAddFolderZ(result, "..");
+        pathClean(result);
+    }
+
+    FUNCTION_TEST_RETURN(PATH, result);
+}
+
+/**********************************************************************************************************************************/
+//FN_EXTERN bool
+//pathHasPart(const Path *this, PathPart part)
+//{
+//    FUNCTION_TEST_BEGIN();
+//        FUNCTION_TEST_PARAM(PATH, this);
+//        FUNCTION_TEST_PARAM(ENUM, part);
+//    FUNCTION_TEST_END();
+//
+//    ASSERT(this != NULL);
+//
+//    bool result = false;
+//
+//    switch (part)
+//    {
+//        case pathPartRoot:
+//            result = this->rootType != pathRootNone;
+//            break;
+//
+//        case pathPartDirectory:
+//            result = this->folders != NULL && !strLstEmpty(this->folders);
+//            break;
+//
+//        case pathPartFile:
+//            result = this->fileName != NULL && !strEmpty(this->fileName);
+//            break;
+//    }
+//
+//    FUNCTION_TEST_RETURN(BOOL, result);
+//}
+
+/**********************************************************************************************************************************/
+//FN_EXTERN String *
+//pathGetPartStr(const Path *this, PathPart part)
+//{
+//    FUNCTION_TEST_BEGIN();
+//        FUNCTION_TEST_PARAM(PATH, this);
+//        FUNCTION_TEST_PARAM(ENUM, part);
+//    FUNCTION_TEST_END();
+//
+//    ASSERT(this != NULL);
+//
+//    String *result = NULL;
+//
+//    if (pathHasPart(this, part))
+//    {
+//        switch (part)
+//        {
+//            case pathPartRoot:
+//                result = strDup(this->root);
+//                break;
+//
+//            case pathPartDirectory:
+//                result = strNew();
+//
+//                for (unsigned int idx = 0; idx < strLstSize(this->folders); idx++)
+//                {
+//                    result = strCat(result, strLstGet(this->folders, idx));
+//                    result = strCatChr(result, '/');
+//                }
+//                break;
+//
+//            case pathPartFile:
+//                result = strDup(this->fileName);
+//                break;
+//        }
+//    }
+//
+//    FUNCTION_TEST_RETURN(STRING, result);
+//}
 
 /**********************************************************************************************************************************/
 FN_EXTERN String *
@@ -579,21 +717,23 @@ pathToString(const Path *this)
 
     MEM_CONTEXT_TEMP_BEGIN();
     {
-        String *part = pathGetPartStr(this, pathPartRoot);
+        const String *part = pathGetRoot(this);
 
         if (part != NULL)
             result = strCat(result, part);
 
-        part = pathGetPartStr(this, pathPartDirectory);
+        for (unsigned int idx = 0; idx < pathGetFolderCount(this); idx++)
+        {
+            part = pathGetFolder(this, idx);
 
-        if (part != NULL) {
             if (!strEmpty(result) && !strEndsWithZ(result, "/"))
                 result = strCatChr(result, '/');
 
             result = strCat(result, part);
+            result = strCatChr(result, '/');
         }
 
-        part = pathGetPartStr(this, pathPartFile);
+        part = pathGetFileName(this);
 
         if (part != NULL)
         {
@@ -624,23 +764,9 @@ pathMakeAbsolute(const Path *this, const Path *basePath)
     ASSERT(basePath != NULL);
     ASSERT(pathIsRelative(this));
     ASSERT(pathIsAbsolute(basePath));
-    ASSERT(!pathHasPart(basePath, pathPartFile));
+    ASSERT(pathGetFileName(basePath) == NULL);
 
-    Path *result = pathDup(basePath);
-
-    MEM_CONTEXT_OBJ_BEGIN(result);
-    {
-        for (unsigned int idx = 0; idx < strLstSize(this->folders); idx++)
-            strLstAdd(result->folders, strLstGet(this->folders, idx));
-
-        if (this->fileName != NULL)
-            result->fileName = strDup(this->fileName);
-
-        pathClean(result);
-    }
-    MEM_CONTEXT_OBJ_END();
-
-    FUNCTION_TEST_RETURN(PATH, result);
+    FUNCTION_TEST_RETURN(PATH, pathJoin(this, basePath));
 }
 
 /**********************************************************************************************************************************/
@@ -656,7 +782,7 @@ pathMakeRelativeTo(const Path *this, const Path *basePath)
     ASSERT(basePath != NULL);
     ASSERT(pathIsAbsolute(this));
     ASSERT(pathIsAbsolute(basePath));
-    ASSERT(!pathHasPart(basePath, pathPartFile)); // No path can be relative to a file
+    ASSERT(pathGetFileName(basePath) == NULL); // No path can be relative to a file
 
     Path *result = NULL;
 
@@ -671,39 +797,32 @@ pathMakeRelativeTo(const Path *this, const Path *basePath)
         MEM_CONTEXT_OBJ_BEGIN(result);
         {
             // Find the common prefix between the two paths
-            if (pathHasPart(this, pathPartDirectory) && pathHasPart(basePath, pathPartDirectory))
+            while (thisFoldersIdx < pathGetFolderCount(this) && baseFoldersIdx < pathGetFolderCount(basePath))
             {
-                while (thisFoldersIdx < strLstSize(this->folders) && baseFoldersIdx < strLstSize(basePath->folders))
-                {
-                    if (!strEq(strLstGet(this->folders, thisFoldersIdx), strLstGet(basePath->folders, baseFoldersIdx)))
-                        break;
+                if (!strEq(pathGetFolder(this, thisFoldersIdx), pathGetFolder(basePath, baseFoldersIdx)))
+                    break;
 
-                    thisFoldersIdx++;
-                    baseFoldersIdx++;
-                }
+                thisFoldersIdx++;
+                baseFoldersIdx++;
             }
 
             // If the path is not relative to the base path go back some levels
-            if (pathHasPart(basePath, pathPartDirectory))
-            {
-                while (baseFoldersIdx < strLstSize(basePath->folders)) {
-                    pathAddFolderZ(result, "..");
-                    baseFoldersIdx++;
-                }
+            while (baseFoldersIdx < pathGetFolderCount(basePath)) {
+                pathAddFolderZ(result, "..");
+                baseFoldersIdx++;
             }
 
             // Append the relative part
-            if (pathHasPart(this, pathPartDirectory))
-            {
-                while (thisFoldersIdx < strLstSize(this->folders)) {
-                    pathAddFolderStr(result, strLstGet(this->folders, thisFoldersIdx));
-                    thisFoldersIdx++;
-                }
+            while (thisFoldersIdx < pathGetFolderCount(this)) {
+                pathAddFolderStr(result, pathGetFolder(this, thisFoldersIdx));
+                thisFoldersIdx++;
             }
 
+            const String *fileName = pathGetFileName(this);
+
             // Append the file name
-            if (pathHasPart(this, pathPartFile))
-                result->fileName = strDup(this->fileName);
+            if (fileName != NULL)
+                result->fileName = strDup(fileName);
 
             pathClean(result);
         }
@@ -716,17 +835,34 @@ pathMakeRelativeTo(const Path *this, const Path *basePath)
 }
 
 /**********************************************************************************************************************************/
+FN_EXTERN Path *
+pathResolveExpression(const Path *this, const Path *basePath)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(PATH, this);
+        FUNCTION_TEST_PARAM(PATH, basePath);
+    FUNCTION_TEST_END();
+
+    ASSERT(this != NULL);
+    ASSERT(basePath != NULL);
+    ASSERT(this->rootType == pathRootExpression);
+    ASSERT(pathGetFileName(basePath) != NULL);
+
+    FUNCTION_TEST_RETURN(PATH, pathJoin(this, basePath));
+}
+
+/**********************************************************************************************************************************/
 FN_EXTERN void
 pathToLog(const Path *this, StringStatic *debugLog)
 {
     strStcCat(debugLog, "{root: ");
 
-    if (pathHasPart(this, pathPartRoot))
+    if (this->rootType != pathRootNone)
     {
         strStcCat(debugLog, "{type: ");
-        FUNCTION_LOG_ENUM_FORMAT(this->rootType, strStcRemains(debugLog), strStcRemainsSize(debugLog));
+        strStcResultSizeInc(debugLog, FUNCTION_LOG_ENUM_FORMAT(this->rootType, strStcRemains(debugLog), strStcRemainsSize(debugLog)));
         strStcCat(debugLog, ", data: ");
-        FUNCTION_LOG_STRING_FORMAT(this->root, strStcRemains(debugLog), strStcRemainsSize(debugLog));
+        strStcResultSizeInc(debugLog, FUNCTION_LOG_STRING_FORMAT(this->root, strStcRemains(debugLog), strStcRemainsSize(debugLog)));
         strStcCatChr(debugLog, '}');
     }
     else
@@ -734,15 +870,15 @@ pathToLog(const Path *this, StringStatic *debugLog)
 
     strStcCat(debugLog, ", folders: ");
 
-    if (pathHasPart(this, pathPartDirectory))
-        FUNCTION_LOG_STRING_LIST_FORMAT(this->folders, strStcRemains(debugLog), strStcRemainsSize(debugLog));
+    if (pathGetFolderCount(this) > 0)
+        strStcResultSizeInc(debugLog, FUNCTION_LOG_STRING_LIST_FORMAT(this->folders, strStcRemains(debugLog), strStcRemainsSize(debugLog)));
     else
         strStcCat(debugLog, NULL_Z);
 
     strStcCat(debugLog, ", fileName: ");
 
-    if (pathHasPart(this, pathPartFile))
-        FUNCTION_LOG_STRING_FORMAT(this->fileName, strStcRemains(debugLog), strStcRemainsSize(debugLog));
+    if (pathGetFileName(this) != NULL)
+        strStcResultSizeInc(debugLog, FUNCTION_LOG_STRING_FORMAT(this->fileName, strStcRemains(debugLog), strStcRemainsSize(debugLog)));
     else
         strStcCat(debugLog, NULL_Z);
 

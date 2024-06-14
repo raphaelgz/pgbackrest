@@ -11,17 +11,29 @@ Path object
 ***********************************************************************************************************************************/
 typedef struct Path Path;
 
+//typedef enum
+//{
+//    // The "var/lib/postgresql/16/main" part of "/var/lib/postgresql/16/main/PG_VERSION"
+//    pathPartDirectory,
+//
+//    // The "PG_VERSION" part of "/var/lib/postgresql/16/main/PG_VERSION"
+//    pathPartFile,
+//
+//    // The first "/" in "/var/lib/postgresql/16/main/PG_VERSION"
+//    pathPartRoot,
+//} PathPart;
+
 typedef enum
 {
-    // The "var/lib/postgresql/16/main" part of "/var/lib/postgresql/16/main/PG_VERSION"
-    pathPartDirectory,
+    // No root
+    pathRootNone,
 
-    // The "PG_VERSION" part of "/var/lib/postgresql/16/main/PG_VERSION"
-    pathPartFile,
+    // The root is '/'
+    pathRootSlash,
 
-    // The first "/" in "/var/lib/postgresql/16/main/PG_VERSION"
-    pathPartRoot,
-} PathPart;
+    // The root is an expression, like "<EXP>"
+    pathRootExpression,
+} PathRootType;
 
 /***********************************************************************************************************************************
 Constructors
@@ -42,14 +54,29 @@ FN_EXTERN Path *pathNewZN(const char *path, size_t length, PathNewParam param);
 FN_EXTERN Path *pathDup(const Path *this);
 
 /***********************************************************************************************************************************
+Destructor
+***********************************************************************************************************************************/
+FN_INLINE_ALWAYS void
+pathFree(Path *const this)
+{
+    objFree(this);
+}
+
+/***********************************************************************************************************************************
 Getters/Setters
 ***********************************************************************************************************************************/
 FN_EXTERN bool pathIsRoot(const Path *this);
 FN_EXTERN bool pathIsAbsolute(const Path *this);
 FN_EXTERN bool pathIsRelative(const Path *this);
 FN_EXTERN bool pathIsRelativeTo(const Path *this, const Path *basePath);
-FN_EXTERN bool pathHasPart(const Path *this, PathPart part);
-FN_EXTERN String *pathGetPartStr(const Path *this, PathPart part);
+FN_EXTERN PathRootType pathGetRootType(const Path *this);
+FN_EXTERN const String *pathGetRoot(const Path *this);
+FN_EXTERN const String *pathGetFolder(const Path *this, unsigned int idx);
+FN_EXTERN unsigned int pathGetFolderCount(const Path *this);
+FN_EXTERN const String *pathGetFileName(const Path *this);
+FN_EXTERN Path *pathGetParent(const Path *this);
+//FN_EXTERN bool pathHasPart(const Path *this, PathPart part);
+//FN_EXTERN String *pathGetPartStr(const Path *this, PathPart part);
 
 /***********************************************************************************************************************************
 Functions
@@ -62,6 +89,7 @@ FN_EXTERN String *pathToString(const Path *this);
 //FN_EXTERN FN_PRINTF(2, 3) Path *pathChangeDirFmt(Path *this, const char *format, ...);
 FN_EXTERN Path *pathMakeAbsolute(const Path *this, const Path *basePath);
 FN_EXTERN Path *pathMakeRelativeTo(const Path *this, const Path *basePath);
+FN_EXTERN Path *pathResolveExpression(const Path *this, const Path *basePath);
 
 /***********************************************************************************************************************************
 Log support
