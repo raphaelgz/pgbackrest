@@ -13,6 +13,7 @@ in the description of each function.
 #ifndef STORAGE_STORAGE_INTERN_H
 #define STORAGE_STORAGE_INTERN_H
 
+#include "common/path.h"
 #include "common/type/param.h"
 #include "storage/info.h"
 #include "storage/list.h"
@@ -56,7 +57,7 @@ Error messages
 /***********************************************************************************************************************************
 Path expression callback function type - used to modify paths based on expressions enclosed in <>
 ***********************************************************************************************************************************/
-typedef String *StoragePathExpressionCallback(const String *expression, const String *path);
+typedef Path *StoragePathExpressionCallback(const Path *path);
 
 /***********************************************************************************************************************************
 Storage info callback function type - used to return storage info
@@ -81,7 +82,7 @@ typedef struct StorageInterfaceInfoParam
 } StorageInterfaceInfoParam;
 
 typedef StorageInfo StorageInterfaceInfo(
-    void *thisVoid, const String *file, StorageInfoLevel level, StorageInterfaceInfoParam param);
+    void *thisVoid, const Path *file, StorageInfoLevel level, StorageInterfaceInfoParam param);
 
 #define storageInterfaceInfoP(thisVoid, file, level, ...)                                                                          \
     STORAGE_COMMON_INTERFACE(thisVoid).info(thisVoid, file, level, (StorageInterfaceInfoParam){VAR_PARAM_INIT, __VA_ARGS__})
@@ -97,7 +98,7 @@ typedef struct StorageInterfaceLinkCreateParam
 } StorageInterfaceLinkCreateParam;
 
 typedef void StorageInterfaceLinkCreate(
-    void *thisVoid, const String *target, const String *linkPath, StorageInterfaceLinkCreateParam param);
+    void *thisVoid, const Path *target, const Path *linkPath, StorageInterfaceLinkCreateParam param);
 
 #define storageInterfaceLinkCreateP(thisVoid, target, linkPath, ...)                                                               \
     STORAGE_COMMON_INTERFACE(thisVoid).linkCreate(thisVoid, target, linkPath,                                                      \
@@ -121,7 +122,7 @@ typedef struct StorageInterfaceNewReadParam
 } StorageInterfaceNewReadParam;
 
 typedef StorageRead *StorageInterfaceNewRead(
-    void *thisVoid, const String *file, bool ignoreMissing, StorageInterfaceNewReadParam param);
+    void *thisVoid, const Path *file, bool ignoreMissing, StorageInterfaceNewReadParam param);
 
 #define storageInterfaceNewReadP(thisVoid, file, ignoreMissing, ...)                                                               \
     STORAGE_COMMON_INTERFACE(thisVoid).newRead(                                                                                    \
@@ -164,7 +165,7 @@ typedef struct StorageInterfaceNewWriteParam
     bool compressible;
 } StorageInterfaceNewWriteParam;
 
-typedef StorageWrite *StorageInterfaceNewWrite(void *thisVoid, const String *file, StorageInterfaceNewWriteParam param);
+typedef StorageWrite *StorageInterfaceNewWrite(void *thisVoid, const Path *file, StorageInterfaceNewWriteParam param);
 
 #define storageInterfaceNewWriteP(thisVoid, file, ...)                                                                             \
     STORAGE_COMMON_INTERFACE(thisVoid).newWrite(thisVoid, file, (StorageInterfaceNewWriteParam){VAR_PARAM_INIT, __VA_ARGS__})
@@ -188,7 +189,7 @@ typedef struct StorageInterfaceListParam
 } StorageInterfaceListParam;
 
 typedef StorageList *StorageInterfaceList(
-    void *thisVoid, const String *path, StorageInfoLevel level, StorageInterfaceListParam param);
+    void *thisVoid, const Path *path, StorageInfoLevel level, StorageInterfaceListParam param);
 
 #define storageInterfaceListP(thisVoid, path, level, ...)                                                                          \
     STORAGE_COMMON_INTERFACE(thisVoid).list(                                                                                       \
@@ -201,7 +202,7 @@ typedef struct StorageInterfacePathRemoveParam
     VAR_PARAM_HEADER;
 } StorageInterfacePathRemoveParam;
 
-typedef bool StorageInterfacePathRemove(void *thisVoid, const String *path, bool recurse, StorageInterfacePathRemoveParam param);
+typedef bool StorageInterfacePathRemove(void *thisVoid, const Path *path, bool recurse, StorageInterfacePathRemoveParam param);
 
 #define storageInterfacePathRemoveP(thisVoid, path, recurse, ...)                                                                  \
     STORAGE_COMMON_INTERFACE(thisVoid).pathRemove(                                                                                 \
@@ -217,7 +218,7 @@ typedef struct StorageInterfaceRemoveParam
     bool errorOnMissing;
 } StorageInterfaceRemoveParam;
 
-typedef void StorageInterfaceRemove(void *thisVoid, const String *file, StorageInterfaceRemoveParam param);
+typedef void StorageInterfaceRemove(void *thisVoid, const Path *file, StorageInterfaceRemoveParam param);
 
 #define storageInterfaceRemoveP(thisVoid, file, ...)                                                                               \
     STORAGE_COMMON_INTERFACE(thisVoid).remove(thisVoid, file, (StorageInterfaceRemoveParam){VAR_PARAM_INIT, __VA_ARGS__})
@@ -245,7 +246,7 @@ typedef struct StorageInterfacePathCreateParam
 } StorageInterfacePathCreateParam;
 
 typedef void StorageInterfacePathCreate(
-    void *thisVoid, const String *path, bool errorOnExists, bool noParentCreate, mode_t mode,
+    void *thisVoid, const Path *path, bool errorOnExists, bool noParentCreate, mode_t mode,
     StorageInterfacePathCreateParam param);
 
 #define storageInterfacePathCreateP(thisVoid, path, errorOnExists, noParentCreate, mode, ...)                                      \
@@ -259,7 +260,7 @@ typedef struct StorageInterfacePathSyncParam
     VAR_PARAM_HEADER;
 } StorageInterfacePathSyncParam;
 
-typedef void StorageInterfacePathSync(void *thisVoid, const String *path, StorageInterfacePathSyncParam param);
+typedef void StorageInterfacePathSync(void *thisVoid, const Path *path, StorageInterfacePathSyncParam param);
 
 #define storageInterfacePathSyncP(thisVoid, path, ...)                                                                             \
     STORAGE_COMMON_INTERFACE(thisVoid).pathSync(thisVoid, path, (StorageInterfacePathSyncParam){VAR_PARAM_INIT, __VA_ARGS__})
@@ -306,7 +307,7 @@ typedef struct StorageInterface
     storageNew(type, path, modeFile, modePath, write, pathExpressionFunction, driver, (StorageInterface){__VA_ARGS__})
 
 FN_EXTERN Storage *storageNew(
-    StringId type, const String *path, mode_t modeFile, mode_t modePath, bool write,
+    StringId type, const Path *path, mode_t modeFile, mode_t modePath, bool write,
     StoragePathExpressionCallback pathExpressionFunction, void *driver, StorageInterface interface);
 
 /***********************************************************************************************************************************

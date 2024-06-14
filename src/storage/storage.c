@@ -10,6 +10,7 @@ Storage Interface
 #include "common/io/io.h"
 #include "common/log.h"
 #include "common/memContext.h"
+#include "common/path.h"
 #include "common/regExp.h"
 #include "common/type/list.h"
 #include "common/wait.h"
@@ -21,7 +22,7 @@ Object type
 struct Storage
 {
     StoragePub pub;                                                 // Publicly accessible variables
-    const String *path;
+    Path *path;
     mode_t modeFile;
     mode_t modePath;
     bool write;
@@ -31,12 +32,12 @@ struct Storage
 /**********************************************************************************************************************************/
 FN_EXTERN Storage *
 storageNew(
-    const StringId type, const String *const path, const mode_t modeFile, const mode_t modePath, const bool write,
+    const StringId type, const Path *const path, const mode_t modeFile, const mode_t modePath, const bool write,
     StoragePathExpressionCallback pathExpressionFunction, void *const driver, const StorageInterface interface)
 {
     FUNCTION_LOG_BEGIN(logLevelTrace);
         FUNCTION_LOG_PARAM(STRING_ID, type);
-        FUNCTION_LOG_PARAM(STRING, path);
+        FUNCTION_LOG_PARAM(PATH, path);
         FUNCTION_LOG_PARAM(MODE, modeFile);
         FUNCTION_LOG_PARAM(MODE, modePath);
         FUNCTION_LOG_PARAM(BOOL, write);
@@ -48,7 +49,7 @@ storageNew(
     FUNCTION_AUDIT_HELPER();
 
     ASSERT(type != 0);
-    ASSERT(strSize(path) >= 1 && strZ(path)[0] == '/');
+    ASSERT(path != NULL && pathIsAbsolute(path));
     ASSERT(driver != NULL);
     ASSERT(interface.info != NULL);
     ASSERT(interface.list != NULL);
@@ -67,7 +68,7 @@ storageNew(
                 .driver = objMoveToInterface(driver, this, memContextPrior()),
                 .interface = interface,
             },
-            .path = strDup(path),
+            .path = pathDup(path),
             .modeFile = modeFile,
             .modePath = modePath,
             .write = write,
@@ -141,11 +142,11 @@ storageCopy(StorageRead *const source, StorageWrite *const destination)
 
 /**********************************************************************************************************************************/
 FN_EXTERN bool
-storageExists(const Storage *const this, const String *const pathExp, const StorageExistsParam param)
+storageExists(const Storage *const this, const Path *const pathExp, const StorageExistsParam param)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE, this);
-        FUNCTION_LOG_PARAM(STRING, pathExp);
+        FUNCTION_LOG_PARAM(PATH, pathExp);
         FUNCTION_LOG_PARAM(TIMEMSEC, param.timeout);
     FUNCTION_LOG_END();
 
@@ -201,7 +202,7 @@ storageGet(StorageRead *const file, const StorageGetParam param)
 
                 // If an exact read make sure the size is as expected
                 if (bufUsed(result) != param.exactSize)
-                    THROW_FMT(FileReadError, "unable to read %zu byte(s) from '%s'", param.exactSize, strZ(storageReadName(file)));
+                    THROW_FMT(FileReadError, "unable to read %zu byte(s) from '%s'", param.exactSize, strZ(pathToString(storageReadPath(file))));
             }
             // Else read entire file
             else
@@ -234,11 +235,11 @@ storageGet(StorageRead *const file, const StorageGetParam param)
 
 /**********************************************************************************************************************************/
 FN_EXTERN StorageInfo
-storageInfo(const Storage *const this, const String *const fileExp, StorageInfoParam param)
+storageInfo(const Storage *const this, const Path *const fileExp, StorageInfoParam param)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE, this);
-        FUNCTION_LOG_PARAM(STRING, fileExp);
+        FUNCTION_LOG_PARAM(PATH, fileExp);
         FUNCTION_LOG_PARAM(ENUM, param.level);
         FUNCTION_LOG_PARAM(BOOL, param.ignoreMissing);
         FUNCTION_LOG_PARAM(BOOL, param.followLink);
@@ -255,7 +256,7 @@ storageInfo(const Storage *const this, const String *const fileExp, StorageInfoP
     MEM_CONTEXT_TEMP_BEGIN()
     {
         // Build the path
-        const String *const file = storagePathP(this, fileExp, .noEnforce = param.noPathEnforce);
+        const Path *const file = storagePathP(this, fileExp, .noEnforce = param.noPathEnforce);
 
         // Call driver function
         if (param.level == storageInfoLevelDefault)
@@ -263,7 +264,7 @@ storageInfo(const Storage *const this, const String *const fileExp, StorageInfoP
 
         // If file is / then this is definitely a path so skip the call for drivers that do not support paths and do not provide
         // additional info to return. Also, some object stores (e.g. S3) behave strangely when getting info for /.
-        if (strEq(file, FSLASH_STR) && !storageFeature(this, storageFeaturePath))
+        if (pathIsRoot(file) && !storageFeature(this, storageFeaturePath))
         {
             result = (StorageInfo){.level = param.level};
         }
@@ -273,7 +274,7 @@ storageInfo(const Storage *const this, const String *const fileExp, StorageInfoP
 
         // Error if the file missing and not ignoring
         if (!result.exists && !param.ignoreMissing)
-            THROW_FMT(FileOpenError, STORAGE_ERROR_INFO_MISSING, strZ(file));
+            THROW_FMT(FileOpenError, STORAGE_ERROR_INFO_MISSING, strZ(pathToString(file)));
 
         // Dup the strings into the prior context
         MEM_CONTEXT_PRIOR_BEGIN()
@@ -291,11 +292,11 @@ storageInfo(const Storage *const this, const String *const fileExp, StorageInfoP
 
 /**********************************************************************************************************************************/
 FN_EXTERN StorageIterator *
-storageNewItr(const Storage *const this, const String *const pathExp, StorageNewItrParam param)
+storageNewItr(const Storage *const this, const Path *const pathExp, StorageNewItrParam param)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE, this);
-        FUNCTION_LOG_PARAM(STRING, pathExp);
+        FUNCTION_LOG_PARAM(PATH, pathExp);
         FUNCTION_LOG_PARAM(ENUM, param.level);
         FUNCTION_LOG_PARAM(BOOL, param.errorOnMissing);
         FUNCTION_LOG_PARAM(BOOL, param.recurse);
@@ -331,12 +332,12 @@ storageNewItr(const Storage *const this, const String *const pathExp, StorageNew
 /**********************************************************************************************************************************/
 FN_EXTERN void
 storageLinkCreate(
-    const Storage *const this, const String *const target, const String *const linkPath, const StorageLinkCreateParam param)
+    const Storage *const this, const Path *const target, const Path *const linkPath, const StorageLinkCreateParam param)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE, this);
-        FUNCTION_LOG_PARAM(STRING, target);
-        FUNCTION_LOG_PARAM(STRING, linkPath);
+        FUNCTION_LOG_PARAM(PATH, target);
+        FUNCTION_LOG_PARAM(PATH, linkPath);
         FUNCTION_LOG_PARAM(ENUM, param.linkType);
     FUNCTION_LOG_END();
 
@@ -360,11 +361,11 @@ storageLinkCreate(
 
 /**********************************************************************************************************************************/
 FN_EXTERN StringList *
-storageList(const Storage *const this, const String *const pathExp, const StorageListParam param)
+storageList(const Storage *const this, const Path *const pathExp, const StorageListParam param)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE, this);
-        FUNCTION_LOG_PARAM(STRING, pathExp);
+        FUNCTION_LOG_PARAM(PATH, pathExp);
         FUNCTION_LOG_PARAM(BOOL, param.errorOnMissing);
         FUNCTION_LOG_PARAM(BOOL, param.nullOnMissing);
         FUNCTION_LOG_PARAM(STRING, param.expression);
@@ -422,13 +423,13 @@ storageMove(const Storage *const this, StorageRead *const source, StorageWrite *
             storageCopyP(source, destination);
 
             // Remove the source file
-            storageInterfaceRemoveP(storageDriver(this), storageReadName(source));
+            storageInterfaceRemoveP(storageDriver(this), storageReadPath(source));
 
             // Sync source path if the destination path was synced. We know the source and destination paths are different because
             // the move did not succeed. This will need updating when drivers other than Posix/CIFS are implemented because there's
             // no way to get coverage on it now.
             if (storageWriteSyncPath(destination))
-                storageInterfacePathSyncP(storageDriver(this), strPath(storageReadName(source)));
+                storageInterfacePathSyncP(storageDriver(this), pathGetParent(storageReadPath(source)));
         }
     }
     MEM_CONTEXT_TEMP_END();
@@ -438,11 +439,11 @@ storageMove(const Storage *const this, StorageRead *const source, StorageWrite *
 
 /**********************************************************************************************************************************/
 FN_EXTERN StorageRead *
-storageNewRead(const Storage *const this, const String *const fileExp, const StorageNewReadParam param)
+storageNewRead(const Storage *const this, const Path *const fileExp, const StorageNewReadParam param)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE, this);
-        FUNCTION_LOG_PARAM(STRING, fileExp);
+        FUNCTION_LOG_PARAM(PATH, fileExp);
         FUNCTION_LOG_PARAM(BOOL, param.ignoreMissing);
         FUNCTION_LOG_PARAM(BOOL, param.compressible);
         FUNCTION_LOG_PARAM(UINT64, param.offset);
@@ -469,11 +470,11 @@ storageNewRead(const Storage *const this, const String *const fileExp, const Sto
 
 /**********************************************************************************************************************************/
 FN_EXTERN StorageWrite *
-storageNewWrite(const Storage *const this, const String *const fileExp, const StorageNewWriteParam param)
+storageNewWrite(const Storage *const this, const Path *const fileExp, const StorageNewWriteParam param)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE, this);
-        FUNCTION_LOG_PARAM(STRING, fileExp);
+        FUNCTION_LOG_PARAM(PATH, fileExp);
         FUNCTION_LOG_PARAM(MODE, param.modeFile);
         FUNCTION_LOG_PARAM(MODE, param.modePath);
         FUNCTION_LOG_PARAM(STRING, param.user);
@@ -511,114 +512,82 @@ storageNewWrite(const Storage *const this, const String *const fileExp, const St
 }
 
 /**********************************************************************************************************************************/
-FN_EXTERN String *
-storagePath(const Storage *const this, const String *pathExp, const StoragePathParam param)
+FN_EXTERN Path *
+storagePath(const Storage *const this, const Path *pathExp, const StoragePathParam param)
 {
     FUNCTION_TEST_BEGIN();
         FUNCTION_TEST_PARAM(STORAGE, this);
-        FUNCTION_TEST_PARAM(STRING, pathExp);
+        FUNCTION_TEST_PARAM(PATH, pathExp);
         FUNCTION_TEST_PARAM(BOOL, param.noEnforce);
     FUNCTION_TEST_END();
 
     ASSERT(this != NULL);
 
-    String *result;
+    Path *result;
 
     // If there is no path expression then return the base storage path
     if (pathExp == NULL)
     {
-        result = strDup(this->path);
+        result = pathDup(this->path);
     }
     else
     {
-        // If the path expression is absolute then use it as is
-        if ((strZ(pathExp))[0] == '/')
+        // Check if there is a path expression that needs to be evaluated
+        if (pathGetRootType(pathExp) == pathRootExpression)
         {
-            // Make sure the base storage path is contained within the path expression
-            if (!strEqZ(this->path, "/"))
+            // Evaluate the path
+            Path *pathEvaluated = this->pathExpressionFunction(pathExp);
+
+            // Evaluated path cannot be NULL
+            if (pathEvaluated == NULL)
+                THROW_FMT(AssertError, "evaluated path '%s' cannot be null", strZ(pathToString(pathExp)));
+
+            // Evaluated path must be relative
+            if (!pathIsRelative(pathEvaluated))
             {
-                if (!param.noEnforce &&
-                    (!strBeginsWith(pathExp, this->path) ||
-                     !(strSize(pathExp) == strSize(this->path) || *(strZ(pathExp) + strSize(this->path)) == '/')))
-                {
-                    THROW_FMT(AssertError, "absolute path '%s' is not in base path '%s'", strZ(pathExp), strZ(this->path));
-                }
+                THROW_FMT(
+                    AssertError,
+                    "evaluated path '%s' ('%s') must be relative",
+                    strZ(pathToString(pathExp)),
+                    strZ(pathToString(pathEvaluated)));
             }
 
-            result = strDup(pathExp);
+            result = pathMakeAbsolute(pathEvaluated, this->path);
+
+            pathFree(pathEvaluated);
+        }
+        // If the path expression is absolute then use it as is
+        else if (pathIsAbsolute(pathExp))
+        {
+            // Make sure the base storage path is contained within the path expression
+            if (!param.noEnforce && !pathIsRelativeTo(pathExp, this->path))
+            {
+                THROW_FMT(
+                    AssertError,
+                    "absolute path '%s' is not in base path '%s'",
+                    strZ(pathToString(pathExp)),
+                    strZ(pathToString(this->path)));
+            }
+
+            result = pathDup(pathExp);
         }
         // Else path expression is relative so combine it with the base storage path
         else
         {
-            // There may or may not be a path expression that needs to be evaluated
-            String *pathEvaluated = NULL;
-
-            // Check if there is a path expression that needs to be evaluated
-            if ((strZ(pathExp))[0] == '<')
-            {
-                if (this->pathExpressionFunction == NULL)
-                    THROW_FMT(AssertError, "expression '%s' not valid without callback function", strZ(pathExp));
-
-                // Get position of the expression end
-                const char *const end = strchr(strZ(pathExp), '>');
-
-                // Error if end is not found
-                if (end == NULL)
-                    THROW_FMT(AssertError, "end > not found in path expression '%s'", strZ(pathExp));
-
-                // Create a string from the expression
-                String *const expression = strNewZN(strZ(pathExp), (size_t)(end - strZ(pathExp) + 1));
-
-                // Create a string from the path if there is anything left after the expression
-                String *path = NULL;
-
-                if (strSize(expression) < strSize(pathExp))
-                {
-                    // Error if path separator is not found
-                    if (end[1] != '/')
-                        THROW_FMT(AssertError, "'/' should separate expression and path '%s'", strZ(pathExp));
-
-                    // Only create path if there is something after the path separator
-                    if (end[2] == 0)
-                        THROW_FMT(AssertError, "path '%s' should not end in '/'", strZ(pathExp));
-
-                    path = strNewZ(end + 2);
-                }
-
-                // Evaluate the path
-                pathEvaluated = this->pathExpressionFunction(expression, path);
-
-                // Evaluated path cannot be NULL
-                if (pathEvaluated == NULL)
-                    THROW_FMT(AssertError, "evaluated path '%s' cannot be null", strZ(pathExp));
-
-                // Assign evaluated path to path
-                pathExp = pathEvaluated;
-
-                // Free temp vars
-                strFree(expression);
-                strFree(path);
-            }
-
-            if (strEqZ(this->path, "/"))
-                result = strNewFmt("/%s", strZ(pathExp));
-            else
-                result = strNewFmt("%s/%s", strZ(this->path), strZ(pathExp));
-
-            strFree(pathEvaluated);
+            result = pathMakeAbsolute(pathExp, this->path);
         }
     }
 
-    FUNCTION_TEST_RETURN(STRING, result);
+    FUNCTION_TEST_RETURN(PATH, result);
 }
 
 /**********************************************************************************************************************************/
 FN_EXTERN void
-storagePathCreate(const Storage *const this, const String *const pathExp, const StoragePathCreateParam param)
+storagePathCreate(const Storage *const this, const Path *const pathExp, const StoragePathCreateParam param)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE, this);
-        FUNCTION_LOG_PARAM(STRING, pathExp);
+        FUNCTION_LOG_PARAM(PATH, pathExp);
         FUNCTION_LOG_PARAM(BOOL, param.errorOnExists);
         FUNCTION_LOG_PARAM(BOOL, param.noParentCreate);
         FUNCTION_LOG_PARAM(MODE, param.mode);
@@ -642,11 +611,11 @@ storagePathCreate(const Storage *const this, const String *const pathExp, const 
 
 /**********************************************************************************************************************************/
 FN_EXTERN bool
-storagePathExists(const Storage *const this, const String *const pathExp)
+storagePathExists(const Storage *const this, const Path *const pathExp)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE, this);
-        FUNCTION_LOG_PARAM(STRING, pathExp);
+        FUNCTION_LOG_PARAM(PATH, pathExp);
     FUNCTION_LOG_END();
 
     ASSERT(this != NULL);
@@ -661,11 +630,11 @@ storagePathExists(const Storage *const this, const String *const pathExp)
 
 /**********************************************************************************************************************************/
 FN_EXTERN void
-storagePathRemove(const Storage *const this, const String *const pathExp, const StoragePathRemoveParam param)
+storagePathRemove(const Storage *const this, const Path *const pathExp, const StoragePathRemoveParam param)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE, this);
-        FUNCTION_LOG_PARAM(STRING, pathExp);
+        FUNCTION_LOG_PARAM(PATH, pathExp);
         FUNCTION_LOG_PARAM(BOOL, param.errorOnMissing);
         FUNCTION_LOG_PARAM(BOOL, param.recurse);
     FUNCTION_LOG_END();
@@ -678,11 +647,11 @@ storagePathRemove(const Storage *const this, const String *const pathExp, const 
     MEM_CONTEXT_TEMP_BEGIN()
     {
         // Build the path
-        const String *const path = storagePathP(this, pathExp);
+        const Path *const path = storagePathP(this, pathExp);
 
         // Call driver function
         if (!storageInterfacePathRemoveP(storageDriver(this), path, param.recurse) && param.errorOnMissing)
-            THROW_FMT(PathRemoveError, STORAGE_ERROR_PATH_REMOVE_MISSING, strZ(path));
+            THROW_FMT(PathRemoveError, STORAGE_ERROR_PATH_REMOVE_MISSING, strZ(pathToString(path)));
     }
     MEM_CONTEXT_TEMP_END();
 
@@ -691,11 +660,11 @@ storagePathRemove(const Storage *const this, const String *const pathExp, const 
 
 /**********************************************************************************************************************************/
 FN_EXTERN void
-storagePathSync(const Storage *const this, const String *const pathExp)
+storagePathSync(const Storage *const this, const Path *const pathExp)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE, this);
-        FUNCTION_LOG_PARAM(STRING, pathExp);
+        FUNCTION_LOG_PARAM(PATH, pathExp);
     FUNCTION_LOG_END();
 
     ASSERT(this != NULL);
@@ -734,11 +703,11 @@ storagePut(StorageWrite *const file, const Buffer *const buffer)
 
 /**********************************************************************************************************************************/
 FN_EXTERN void
-storageRemove(const Storage *const this, const String *const fileExp, const StorageRemoveParam param)
+storageRemove(const Storage *const this, const Path *const fileExp, const StorageRemoveParam param)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE, this);
-        FUNCTION_LOG_PARAM(STRING, fileExp);
+        FUNCTION_LOG_PARAM(PATH, fileExp);
         FUNCTION_LOG_PARAM(BOOL, param.errorOnMissing);
     FUNCTION_LOG_END();
 
@@ -761,5 +730,7 @@ storageToLog(const Storage *const this, StringStatic *const debugLog)
 {
     strStcCat(debugLog, "{type: "),
     strStcResultSizeInc(debugLog, strIdToLog(storageType(this), strStcRemains(debugLog), strStcRemainsSize(debugLog)));
-    strStcFmt(debugLog, ", path: %s, write: %s}", strZ(this->path), cvtBoolToConstZ(this->write));
+    strStcCat(debugLog, ", path: ");
+    strStcResultSizeInc(debugLog, FUNCTION_LOG_PATH_FORMAT(this->path, strStcRemains(debugLog), strStcRemainsSize(debugLog)));
+    strStcFmt(debugLog, ", write: %s}", cvtBoolToConstZ(this->write));
 }
