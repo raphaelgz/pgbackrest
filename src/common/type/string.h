@@ -200,6 +200,15 @@ FN_EXTERN String *strPath(const String *this);
 // Combine with a base path to get an absolute path
 FN_EXTERN String *strPathAbsolute(const String *this, const String *base);
 
+// Replace the specified portion of the string with another string
+FN_EXTERN String *strReplaceAt(String *this, size_t start, size_t size, const String *replace);
+
+// Replace the specified portion of the string with a zero-terminated string
+FN_EXTERN String *strReplaceAtZ(String *this, size_t start, size_t size, const char *replace);
+
+// Replace the specified portion of the string with zero-terminated string with a specific length
+FN_EXTERN String *strReplaceAtZN(String *this, size_t start, size_t size, const char *replace, size_t replaceSize);
+
 // Replace a character with another character
 FN_EXTERN String *strReplaceChr(String *this, char find, char replace);
 
