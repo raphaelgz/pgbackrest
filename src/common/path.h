@@ -5,6 +5,7 @@ Path Handler
 #define COMMON_PATH_H
 
 #include "common/type/string.h"
+#include "common/type/stringList.h"
 
 /***********************************************************************************************************************************
 Path object
@@ -38,19 +39,12 @@ typedef enum
 /***********************************************************************************************************************************
 Constructors
 ***********************************************************************************************************************************/
-typedef struct PathNewParam
-{
-    VAR_PARAM_HEADER;
-    bool forceDirectory;
-} PathNewParam;
-
-#define pathNewP(path, ...) pathNew(path, (PathNewParam){VAR_PARAM_INIT, __VA_ARGS__})
-#define pathNewZP(path, ...) pathNewZ(path, (PathNewParam){VAR_PARAM_INIT, __VA_ARGS__})
-#define pathNewZNP(path, length, ...) pathNewZN(path, length, (PathNewParam){VAR_PARAM_INIT, __VA_ARGS__})
-
-FN_EXTERN Path *pathNew(const String *path, PathNewParam param);
-FN_EXTERN Path *pathNewZ(const char *path, PathNewParam param);
-FN_EXTERN Path *pathNewZN(const char *path, size_t length, PathNewParam param);
+FN_EXTERN Path *pathNew(const String *path);
+FN_EXTERN Path *pathNewZ(const char *path);
+FN_EXTERN Path *pathNewZN(const char *path, size_t length);
+FN_EXTERN Path *pathNewAbsolute(const String *path, const Path *basePath);
+FN_EXTERN Path *pathNewAbsoluteZ(const char *path, const Path *basePath);
+FN_EXTERN Path *pathNewAbsoluteZN(const char *path, size_t length, const Path *basePath);
 FN_EXTERN Path *pathDup(const Path *this);
 
 /***********************************************************************************************************************************
@@ -71,24 +65,17 @@ FN_EXTERN bool pathIsRelative(const Path *this);
 FN_EXTERN bool pathIsRelativeTo(const Path *this, const Path *basePath);
 FN_EXTERN PathRootType pathGetRootType(const Path *this);
 FN_EXTERN const String *pathGetRoot(const Path *this);
-FN_EXTERN const String *pathGetFolder(const Path *this, unsigned int idx);
-FN_EXTERN unsigned int pathGetFolderCount(const Path *this);
-FN_EXTERN const String *pathGetFileName(const Path *this);
+FN_EXTERN const String *pathGetName(const Path *this);
+FN_EXTERN const String *pathGetComponent(const Path *this, unsigned int idx);
+FN_EXTERN unsigned int pathGetComponentCount(const Path *this);
 FN_EXTERN Path *pathGetParent(const Path *this);
-//FN_EXTERN bool pathHasPart(const Path *this, PathPart part);
-//FN_EXTERN String *pathGetPartStr(const Path *this, PathPart part);
 
 /***********************************************************************************************************************************
 Functions
 ***********************************************************************************************************************************/
 FN_EXTERN String *pathToString(const Path *this);
-//FN_EXTERN Path *pathChangeDir(Path *this, const Path *path);
-//FN_EXTERN Path *pathChangeDirStr(Path *this, const String *path);
-//FN_EXTERN Path *pathChangeDirZ(Path *this, const char *path);
-//FN_EXTERN Path *pathChangeDirZN(Path *this, const char *path, size_t length);
-//FN_EXTERN FN_PRINTF(2, 3) Path *pathChangeDirFmt(Path *this, const char *format, ...);
-FN_EXTERN Path *pathMakeAbsolute(const Path *this, const Path *basePath);
-FN_EXTERN Path *pathMakeRelativeTo(const Path *this, const Path *basePath);
+FN_EXTERN Path *pathMakeAbsolute(Path *this, const Path *basePath);
+FN_EXTERN Path *pathMakeRelativeTo(Path *this, const Path *basePath);
 FN_EXTERN Path *pathResolveExpression(const Path *this, const Path *basePath);
 
 /***********************************************************************************************************************************
