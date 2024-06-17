@@ -107,11 +107,6 @@ FN_EXTERN const char *strZNull(const String *this);
 /***********************************************************************************************************************************
 Functions
 ***********************************************************************************************************************************/
-// Return the file part of a string (i.e. everything after the last / or the entire string if there is no /). strBaseZ() does not
-// make a copy of the string so it may be more appropriate for large loops where saving memory is important.
-FN_EXTERN String *strBase(const String *this);
-FN_EXTERN const char *strBaseZ(const String *this);
-
 // Does the string begin with the specified string?
 FN_EXTERN bool strBeginsWith(const String *this, const String *beginsWith);
 FN_EXTERN bool strBeginsWithZ(const String *this, const char *beginsWith);
@@ -169,12 +164,6 @@ FN_EXTERN String *strFirstLower(String *this);
 
 // Lower-case entire string
 FN_EXTERN String *strLower(String *this);
-
-// Return the path part of a string (i.e. everything before the last / or "" if there is no /)
-FN_EXTERN String *strPath(const String *this);
-
-// Combine with a base path to get an absolute path
-FN_EXTERN String *strPathAbsolute(const String *this, const String *base);
 
 // Replace a character with another character
 FN_EXTERN String *strReplaceChr(String *this, char find, char replace);
