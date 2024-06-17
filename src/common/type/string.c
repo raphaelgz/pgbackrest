@@ -713,6 +713,96 @@ strZNull(const String *const this)
 
 /**********************************************************************************************************************************/
 FN_EXTERN String *
+strReplace(String *const this, const size_t start, const size_t size, const String *const replace)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(STRING, this);
+        FUNCTION_TEST_PARAM(SIZE, start);
+        FUNCTION_TEST_PARAM(SIZE, size);
+        FUNCTION_TEST_PARAM(STRING, replace);
+    FUNCTION_TEST_END();
+
+    ASSERT(this != NULL);
+    ASSERT(start <= strSize(this));
+    ASSERT(strSize(this) - start <= size);
+    ASSERT(replace != NULL);
+
+    FUNCTION_TEST_RETURN(STRING, strReplaceZN(this, start, size, strZ(replace), strSize(replace)));
+}
+
+/**********************************************************************************************************************************/
+FN_EXTERN String *
+strReplaceZ(String *const this, const size_t start, const size_t size, const char *const replace)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(STRING, this);
+        FUNCTION_TEST_PARAM(SIZE, start);
+        FUNCTION_TEST_PARAM(SIZE, size);
+        FUNCTION_TEST_PARAM(STRINGZ, replace);
+    FUNCTION_TEST_END();
+
+    ASSERT(this != NULL);
+    ASSERT(start <= strSize(this));
+    ASSERT(strSize(this) - start <= size);
+    ASSERT(replace != NULL);
+
+    FUNCTION_TEST_RETURN(STRING, strReplaceZN(this, start, size, replace, strlen(replace)));
+}
+
+/**********************************************************************************************************************************/
+FN_EXTERN String *
+strReplaceZN(String *const this, const size_t start, const size_t size, const char *const replace, const size_t replaceSize)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(STRING, this);
+        FUNCTION_TEST_PARAM(SIZE, start);
+        FUNCTION_TEST_PARAM(SIZE, size);
+        FUNCTION_TEST_PARAM(CHARDATA, replace);
+        FUNCTION_TEST_PARAM(SIZE, replaceSize);
+    FUNCTION_TEST_END();
+
+    ASSERT(this != NULL);
+    ASSERT(start <= strSize(this));
+    ASSERT(strSize(this) - start <= size);
+    ASSERT(replace != NULL);
+
+    if (size != 0)
+    {
+        size_t prefixSize = start;
+        size_t middleSize = size;
+        size_t suffixSize = strSize(this) - prefixSize - middleSize;
+
+        // Ensure there is enough space to grow the string
+        if (middleSize < replaceSize)
+            strResize(this, replaceSize - middleSize);
+
+        // Move the string suffix if needed
+        if (middleSize != replaceSize)
+            memmove(this->pub.buffer + prefixSize + middleSize, this->pub.buffer + prefixSize + replaceSize, suffixSize);
+
+        // Replace the requested string portion
+        memcpy(this->pub.buffer + prefixSize, replace, replaceSize);
+
+        // Update the size
+        if (middleSize < replaceSize)
+        {
+            this->pub.size += replaceSize - middleSize;
+            this->pub.extra -= replaceSize - middleSize;
+        }
+        else
+        {
+            this->pub.size -= middleSize - replaceSize;
+            this->pub.extra += middleSize - replaceSize;
+        }
+
+        this->pub.buffer[this->pub.size] = 0;
+    }
+
+    FUNCTION_TEST_RETURN(STRING, this);
+}
+
+/**********************************************************************************************************************************/
+FN_EXTERN String *
 strReplaceChr(String *const this, const char find, const char replace)
 {
     FUNCTION_TEST_BEGIN();

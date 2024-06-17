@@ -165,6 +165,15 @@ FN_EXTERN String *strFirstLower(String *this);
 // Lower-case entire string
 FN_EXTERN String *strLower(String *this);
 
+// Replace the specified portion of the string with another string
+FN_EXTERN String *strReplace(String *this, size_t start, size_t size, const String *replace);
+
+// Replace the specified portion of the string with another string
+FN_EXTERN String *strReplaceZ(String *this, size_t start, size_t size, const char *replace);
+
+// Replace the specified portion of the string with another string
+FN_EXTERN String *strReplaceZN(String *this, size_t start, size_t size, const char *replace, size_t replaceSize);
+
 // Replace a character with another character
 FN_EXTERN String *strReplaceChr(String *this, char find, char replace);
 
