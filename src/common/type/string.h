@@ -168,10 +168,10 @@ FN_EXTERN String *strLower(String *this);
 // Replace the specified portion of the string with another string
 FN_EXTERN String *strReplaceAt(String *this, size_t start, size_t size, const String *replace);
 
-// Replace the specified portion of the string with another string
+// Replace the specified portion of the string with a zero-terminated string
 FN_EXTERN String *strReplaceAtZ(String *this, size_t start, size_t size, const char *replace);
 
-// Replace the specified portion of the string with another string
+// Replace the specified portion of the string with zero-terminated string with a specific length
 FN_EXTERN String *strReplaceAtZN(String *this, size_t start, size_t size, const char *replace, size_t replaceSize);
 
 // Insert a string at the specified index
