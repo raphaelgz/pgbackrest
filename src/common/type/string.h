@@ -209,6 +209,27 @@ FN_EXTERN String *strReplaceAtZ(String *this, size_t start, size_t size, const c
 // Replace the specified portion of the string with zero-terminated string with a specific length
 FN_EXTERN String *strReplaceAtZN(String *this, size_t start, size_t size, const char *replace, size_t replaceSize);
 
+// Insert a string at the specified index
+FN_INLINE_ALWAYS String *
+strInsert(String *const this, size_t index, const String *const insert)
+{
+    return strReplaceAt(this, index, 0, insert);
+}
+
+// Insert a zero-terminated string at the specified index
+FN_INLINE_ALWAYS String *
+strInsertZ(String *const this, size_t index, const char *const insert)
+{
+    return strReplaceAtZ(this, index, 0, insert);
+}
+
+// Insert a zero-terminated string with a specific length at the specified index
+FN_INLINE_ALWAYS String *
+strInsertZN(String *const this, size_t index, const char *const insert, size_t size)
+{
+    return strReplaceAtZN(this, index, 0, insert, size);
+}
+
 // Replace a character with another character
 FN_EXTERN String *strReplaceChr(String *this, char find, char replace);
 
