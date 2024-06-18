@@ -195,6 +195,13 @@ strInsertZN(String *const this, size_t index, const char *const insert, size_t s
     return strReplaceAtZN(this, index, 0, insert, size);
 }
 
+// Remove the specified portion of the string
+FN_INLINE_ALWAYS String *
+strRemove(String *const this, size_t start, size_t size)
+{
+    return strReplaceAtZN(this, start, size, "", 0);
+}
+
 // Replace a character with another character
 FN_EXTERN String *strReplaceChr(String *this, char find, char replace);
 
