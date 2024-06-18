@@ -79,6 +79,12 @@ FN_EXTERN Path *pathMakeRelativeTo(Path *this, const Path *basePath);
 FN_EXTERN Path *pathRemoveComponent(Path *this, unsigned int index);
 FN_EXTERN Path *pathResolveExpression(const Path *this, const Path *basePath);
 
+FN_INLINE_ALWAYS const char *
+pathZ(const Path *const this)
+{
+    return strZ(pathStr(this));
+}
+
 /***********************************************************************************************************************************
 Log support
 ***********************************************************************************************************************************/
