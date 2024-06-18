@@ -66,17 +66,17 @@ FN_EXTERN bool pathIsRelativeTo(const Path *this, const Path *basePath);
 FN_EXTERN PathRootType pathGetRootType(const Path *this);
 FN_EXTERN const String *pathGetRoot(const Path *this);
 FN_EXTERN const String *pathGetName(const Path *this);
-FN_EXTERN const String *pathGetComponent(const Path *this, unsigned int idx);
+FN_EXTERN const String *pathGetComponent(const Path *this, unsigned int index);
 FN_EXTERN unsigned int pathGetComponentCount(const Path *this);
 FN_EXTERN Path *pathGetParent(const Path *this);
 
 /***********************************************************************************************************************************
 Functions
 ***********************************************************************************************************************************/
-//FN_EXTERN String *pathToString(const Path *this);
 FN_EXTERN const String *pathStr(const Path *this);
 FN_EXTERN Path *pathMakeAbsolute(Path *this, const Path *basePath);
 FN_EXTERN Path *pathMakeRelativeTo(Path *this, const Path *basePath);
+FN_EXTERN Path *pathRemoveComponent(Path *this, unsigned int index);
 FN_EXTERN Path *pathResolveExpression(const Path *this, const Path *basePath);
 
 /***********************************************************************************************************************************
