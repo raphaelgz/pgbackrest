@@ -766,37 +766,34 @@ strReplaceAtZN(String *const this, const size_t start, const size_t size, const 
     ASSERT(size <= strSize(this) - start);
     ASSERT(replace != NULL);
 
-    if (size != 0)
+    size_t prefixSize = start;
+    size_t middleSize = size;
+    size_t suffixSize = strSize(this) - prefixSize - middleSize;
+
+    // Ensure there is enough space to grow the string
+    if (middleSize < replaceSize)
+        strResize(this, replaceSize - middleSize);
+
+    // Move the string suffix if needed
+    if (middleSize != replaceSize)
+        memmove(this->pub.buffer + prefixSize + replaceSize, this->pub.buffer + prefixSize + middleSize, suffixSize);
+
+    // Replace the requested string portion
+    memcpy(this->pub.buffer + prefixSize, replace, replaceSize);
+
+    // Update the size
+    if (middleSize < replaceSize)
     {
-        size_t prefixSize = start;
-        size_t middleSize = size;
-        size_t suffixSize = strSize(this) - prefixSize - middleSize;
-
-        // Ensure there is enough space to grow the string
-        if (middleSize < replaceSize)
-            strResize(this, replaceSize - middleSize);
-
-        // Move the string suffix if needed
-        if (middleSize != replaceSize)
-            memmove(this->pub.buffer + prefixSize + replaceSize, this->pub.buffer + prefixSize + middleSize, suffixSize);
-
-        // Replace the requested string portion
-        memcpy(this->pub.buffer + prefixSize, replace, replaceSize);
-
-        // Update the size
-        if (middleSize < replaceSize)
-        {
-            this->pub.size += replaceSize - middleSize;
-            this->pub.extra -= replaceSize - middleSize;
-        }
-        else
-        {
-            this->pub.size -= middleSize - replaceSize;
-            this->pub.extra += middleSize - replaceSize;
-        }
-
-        this->pub.buffer[this->pub.size] = 0;
+        this->pub.size += replaceSize - middleSize;
+        this->pub.extra -= replaceSize - middleSize;
     }
+    else
+    {
+        this->pub.size -= middleSize - replaceSize;
+        this->pub.extra += middleSize - replaceSize;
+    }
+
+    this->pub.buffer[this->pub.size] = 0;
 
     FUNCTION_TEST_RETURN(STRING, this);
 }
