@@ -73,7 +73,8 @@ FN_EXTERN Path *pathGetParent(const Path *this);
 /***********************************************************************************************************************************
 Functions
 ***********************************************************************************************************************************/
-FN_EXTERN String *pathToString(const Path *this);
+//FN_EXTERN String *pathToString(const Path *this);
+FN_EXTERN const String *pathStr(const Path *this);
 FN_EXTERN Path *pathMakeAbsolute(Path *this, const Path *basePath);
 FN_EXTERN Path *pathMakeRelativeTo(Path *this, const Path *basePath);
 FN_EXTERN Path *pathResolveExpression(const Path *this, const Path *basePath);

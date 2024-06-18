@@ -4,23 +4,25 @@
 
 #include "common/log.h"
 #include "common/path.h"
-#include "common/type/stringList.h"
+#include "common/type/list.h"
+//#include "common/type/stringList.h"
 
 /***********************************************************************************************************************************
 Object types
 ***********************************************************************************************************************************/
 
-/* FIXME: do not recreate the pathString always */
-//typedef struct PathComponentInfo
-//{
-//    size_t index;
-//    size_t length;
-//} PathComponentInfo;
+typedef struct PathComponentInfo
+{
+    size_t offset;
+    size_t length;
+} PathComponentInfo;
 
 struct Path
 {
     PathRootType rootType;
-    StringList *components;
+    String *str;
+    List *componentsInfo;
+//    StringList *components;
 };
 
 /**********************************************************************************************************************************/
@@ -67,7 +69,9 @@ pathNewInternal(void)
         *this = (Path)
         {
             .rootType = pathRootNone,
-            .components = NULL,
+            .str = NULL,
+            .componentsInfo = NULL,
+//            .components = NULL,
         };
     }
     OBJ_NEW_END();
@@ -76,7 +80,201 @@ pathNewInternal(void)
 }
 
 /**********************************************************************************************************************************/
-static void
+static Path *
+pathInsertComponentZN(Path *const this, const unsigned int componentIndex, const char *const component, const size_t length)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(PATH, this);
+        FUNCTION_TEST_PARAM(UINT, componentIndex);
+        FUNCTION_TEST_PARAM(CHARDATA, component);
+        FUNCTION_TEST_PARAM(SIZE, length);
+    FUNCTION_TEST_END();
+
+    ASSERT(this != NULL);
+    ASSERT(component != NULL);
+    ASSERT(length > 0);
+
+    MEM_CONTEXT_OBJ_BEGIN(this);
+    {
+        if (this->componentsInfo == NULL)
+            this->componentsInfo = lstNewP(sizeof(PathComponentInfo), .sortOrder = sortOrderNone);
+
+        if (this->str == NULL)
+            this->str = strNew();
+
+        bool addSeparatorAfter = false;
+        bool addSeparatorBefore = false;
+        PathComponentInfo *componentInfo = NULL;
+
+        // Using a block only to make harder to use the nextComponentInfo and previousComponentInfo variables after the call to lstInsert()
+        {
+            PathComponentInfo *nextComponentInfo = NULL;
+            PathComponentInfo *previousComponentInfo = NULL;
+
+            if (componentIndex < lstSize(this->componentsInfo))
+                nextComponentInfo = (PathComponentInfo *) lstGet(this->componentsInfo, componentIndex);
+
+            if (componentIndex > 0 && componentIndex <= lstSize(this->componentsInfo))
+                previousComponentInfo = (PathComponentInfo *) lstGet(this->componentsInfo, componentIndex - 1);
+
+            // If the new component is not the first, calculate the offset based on the previous component
+            if (previousComponentInfo != NULL)
+            {
+                PathComponentInfo newComponentInfo =
+                {
+                    .offset = previousComponentInfo->offset + previousComponentInfo->length,
+                    .length = length,
+                };
+
+                // Ensure that the new component is separated from the previous one with a directory separator
+                if (!pathIsValidDirectorySeparatorChar(strZ(this->str)[newComponentInfo.offset - 1]))
+                    addSeparatorBefore = true;
+                // Ensure that the new component is separated from the next one with a directory separator
+                else if (nextComponentInfo != NULL)
+                    addSeparatorAfter = true;
+
+                componentInfo = (PathComponentInfo *) lstInsert(this->componentsInfo, componentIndex, &newComponentInfo);
+            }
+            else
+            {
+                // Ensure that the new component is separated from the next one with a directory separator
+                if (nextComponentInfo != NULL && !pathIsValidDirectorySeparatorChar(component[length - 1]))
+                {
+                    if (nextComponentInfo->offset == 0 || !pathIsValidDirectorySeparatorChar(strZ(this->str)[nextComponentInfo->offset - 1]))
+                        addSeparatorAfter = true;
+                }
+
+                PathComponentInfo newComponentInfo =
+                {
+                    .offset = 0,
+                    .length = length,
+                };
+
+                componentInfo = (PathComponentInfo *) lstInsert(this->componentsInfo, componentIndex, &newComponentInfo);
+            }
+        }
+
+        // Update the path string
+        if (addSeparatorAfter)
+            strInsert(this->str, componentInfo->offset, FSLASH_STR);
+
+        strInsertZN(this->str, componentInfo->offset, component, length);
+
+        if (addSeparatorAfter)
+        {
+            strInsert(this->str, componentInfo->offset, FSLASH_STR);
+            componentInfo->offset++;
+        }
+
+        // Update the offset of all components that come after the new component
+        for (unsigned int idx = componentIndex + 1; idx < lstSize(this->componentsInfo); idx++)
+        {
+            PathComponentInfo *info = (PathComponentInfo *) lstGet(this->componentsInfo, idx);
+
+            info->offset += componentInfo->length;
+
+            if (addSeparatorAfter)
+                info->offset++;
+
+            if (addSeparatorBefore)
+                info->offset++;
+        }
+    }
+    MEM_CONTEXT_OBJ_END();
+
+    FUNCTION_TEST_RETURN(PATH, this);
+}
+
+/**********************************************************************************************************************************/
+static Path *
+pathRemoveComponent(Path *const this, const unsigned int componentIndex)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(PATH, this);
+        FUNCTION_TEST_PARAM(UINT, componentIndex);
+    FUNCTION_TEST_END();
+
+    ASSERT(this != NULL);
+    ASSERT(this->componentsInfo != NULL && componentIndex < lstSize(this->componentsInfo));
+
+    PathComponentInfo *componentInfo = (PathComponentInfo *) lstGet(this->componentsInfo, componentIndex);
+    const size_t componentEndStringIndex = componentInfo->offset + componentInfo->length;
+
+    // Remove the directory separator if it is not part of the component
+    if (!pathIsValidDirectorySeparatorChar(strZ(this->str)[componentEndStringIndex - 1]))
+    {
+        if (componentEndStringIndex < strSize(this->str) && pathIsValidDirectorySeparatorChar(strZ(this->str)[componentEndStringIndex]))
+            componentInfo->length++; // Increase the length in order to "magically" remove the directory separator without any additional checks
+    }
+
+    // Update the offset of all components that come after the removed component
+    for (unsigned int idx = componentIndex + 1; idx < lstSize(this->componentsInfo); idx++)
+    {
+        PathComponentInfo *info = (PathComponentInfo *) lstGet(this->componentsInfo, idx);
+
+        info->offset -= componentInfo->length;
+    }
+
+    strRemove(this->str, componentInfo->offset, componentInfo->length);
+    lstRemoveIdx(this->componentsInfo, componentIndex);
+
+    FUNCTION_TEST_RETURN(PATH, this);
+}
+
+/**********************************************************************************************************************************/
+static Path *
+pathReplaceComponentZN(Path *const this, const unsigned int componentIndex, const char *const component, const size_t length)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(PATH, this);
+        FUNCTION_TEST_PARAM(UINT, componentIndex);
+        FUNCTION_TEST_PARAM(CHARDATA, component);
+        FUNCTION_TEST_PARAM(SIZE, length);
+    FUNCTION_TEST_END();
+
+    ASSERT(this != NULL);
+    ASSERT(this->componentsInfo != NULL && componentIndex < lstSize(this->componentsInfo));
+    ASSERT(component != NULL);
+    ASSERT(length > 0);
+
+    pathRemoveComponent(this, componentIndex);
+
+    FUNCTION_TEST_RETURN(PATH, pathInsertComponentZN(this, componentIndex, component, length));
+}
+
+/**********************************************************************************************************************************/
+static Path *
+pathSetComponentLength(Path *const this, const unsigned int componentIndex, const size_t length)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(PATH, this);
+        FUNCTION_TEST_PARAM(UINT, componentIndex);
+        FUNCTION_TEST_PARAM(SIZE, length);
+    FUNCTION_TEST_END();
+
+    ASSERT(this != NULL);
+
+    PathComponentInfo *info = (PathComponentInfo *) lstGet(this->componentsInfo, componentIndex);
+
+    size_t oldLength = info->length;
+
+    info->length = length;
+
+    for (unsigned int idx = componentIndex + 1; idx < lstSize(this->componentsInfo); idx++)
+    {
+        info = (PathComponentInfo *) lstGet(this->componentsInfo, idx);
+
+        if (oldLength < length)
+            info->offset += length - oldLength;
+        else
+            info->offset -= oldLength - length;
+    }
+
+    FUNCTION_TEST_RETURN(PATH, this);
+}
+
+/**********************************************************************************************************************************/
+static Path *
 pathSetRootComponentZN(Path *this, PathRootType rootType, const char *root, size_t length)
 {
     FUNCTION_TEST_BEGIN();
@@ -95,23 +293,39 @@ pathSetRootComponentZN(Path *this, PathRootType rootType, const char *root, size
 
     MEM_CONTEXT_OBJ_BEGIN(this);
     {
-        if (this->components == NULL)
-            this->components = strLstNew();
+        PathComponentInfo *rootComponentInfo = NULL;
 
-        if (strLstEmpty(this->components))
-            strLstAddZSub(this->components, root, length);
+        if (this->componentsInfo == NULL)
+        {
+            PathComponentInfo newInfo =
+            {
+                .offset = 0,
+                .length = 0
+            };
+
+            this->componentsInfo = lstNewP(sizeof(PathComponentInfo), .sortOrder = sortOrderNone);
+
+            rootComponentInfo = lstAdd(this->componentsInfo, &newInfo);
+        }
         else
-            strCatZN(strTrunc(strLstGet(this->components, 0)), root, length);
+            rootComponentInfo = lstGet(this->componentsInfo, 0);
+
+        if (this->str == NULL)
+            this->str = strNew();
 
         this->rootType = rootType;
+
+        strReplaceZN(this->str, rootComponentInfo->offset, rootComponentInfo->length, root, length);
+
+        pathSetComponentLength(this, 0, length);
     }
     MEM_CONTEXT_OBJ_END();
 
-    FUNCTION_TEST_RETURN_VOID();
+    FUNCTION_TEST_RETURN(PATH, this);
 }
 
 /**********************************************************************************************************************************/
-static void
+static Path *
 pathSetRootComponentStr(Path *const this, PathRootType rootType, const String *const root)
 {
     FUNCTION_TEST_BEGIN();
@@ -123,14 +337,12 @@ pathSetRootComponentStr(Path *const this, PathRootType rootType, const String *c
     ASSERT(this != NULL);
     ASSERT(root != NULL);
 
-    pathSetRootComponentZN(this, rootType, strZ(root), strSize(root));
-
-    FUNCTION_TEST_RETURN_VOID();
+    FUNCTION_TEST_RETURN(PATH, pathSetRootComponentZN(this, rootType, strZ(root), strSize(root)));
 }
 
 /**********************************************************************************************************************************/
-static void
-pathAppendComponentZN(Path *this, const char *component, size_t length)
+static Path *
+pathAppendNonRootComponentZN(Path *const this, const char *const component, const size_t length)
 {
     FUNCTION_TEST_BEGIN();
         FUNCTION_TEST_PARAM(PATH, this);
@@ -143,31 +355,42 @@ pathAppendComponentZN(Path *this, const char *component, size_t length)
     ASSERT(component != NULL);
     ASSERT(length > 0);
 
-    if (this->components == NULL || strLstEmpty(this->components))
+    if (this->componentsInfo == NULL || lstEmpty(this->componentsInfo))
         pathSetRootComponentZN(this, pathRootNone, NULL, 0);
 
-    strLstAddZSub(this->components, component, length);
+    if (this->rootType != pathRootNone && !strEndsWith(this->str, FSLASH_STR))
+        strCat(this->str, FSLASH_STR);
 
-    FUNCTION_TEST_RETURN_VOID();
+    PathComponentInfo newInfo =
+    {
+        .offset = strSize(this->str),
+        .length = length
+    };
+
+    strCatZN(this->str, component, length);
+    lstAdd(this->componentsInfo, &newInfo);
+
+    FUNCTION_TEST_RETURN(PATH, this);
 }
 
 /**********************************************************************************************************************************/
-static void
-pathAppendComponentStr(Path *this, const String *component)
+static Path *
+pathAppendNonRootComponentStr(Path *const this, const String *const component)
 {
     FUNCTION_TEST_BEGIN();
         FUNCTION_TEST_PARAM(PATH, this);
         FUNCTION_TEST_PARAM(STRING, component);
     FUNCTION_TEST_END();
 
-    pathAppendComponentZN(this, strZ(component), strSize(component));
+    ASSERT(this != NULL);
+    ASSERT(component != NULL);
 
-    FUNCTION_TEST_RETURN_VOID();
+    FUNCTION_TEST_RETURN(PATH, pathAppendNonRootComponentZN(this, strZ(component), strSize(component)));
 }
 
 /**********************************************************************************************************************************/
-static void
-pathAppendComponentZ(Path *this, const char *component)
+static Path *
+pathAppendNonRootComponentZ(Path *const this, const char *const component)
 {
     FUNCTION_TEST_BEGIN();
         FUNCTION_TEST_PARAM(PATH, this);
@@ -177,21 +400,25 @@ pathAppendComponentZ(Path *this, const char *component)
     ASSERT(this != NULL);
     ASSERT(component != NULL);
 
-    pathAppendComponentZN(this, component, strlen(component));
-
-    FUNCTION_TEST_RETURN_VOID();
+    FUNCTION_TEST_RETURN(PATH, pathAppendNonRootComponentZN(this, component, strlen(component)));
 }
 /**********************************************************************************************************************************/
-static void
-pathPrependComponentStr(Path *const this, const String *const component)
+static Path *
+pathPrependNonRootComponentStr(Path *const this, const String *const component)
 {
     FUNCTION_TEST_BEGIN();
         FUNCTION_TEST_PARAM(PATH, this);
         FUNCTION_TEST_PARAM(STRING, component);
     FUNCTION_TEST_END();
 
-    if (this->components == NULL || strLstEmpty(this->components))
+    ASSERT(this != NULL);
+    ASSERT(component != NULL);
+    ASSERT(!strEmpty(component));
+
+    if (this->componentsInfo == NULL || lstEmpty(this->componentsInfo))
         pathSetRootComponentZN(this, pathRootNone, NULL, 0);
+
+
 
     strLstInsert(this->components, 1, component);
 
@@ -200,7 +427,7 @@ pathPrependComponentStr(Path *const this, const String *const component)
 
 /**********************************************************************************************************************************/
 static void
-pathPrependComponentZN(Path *this, const char *component, size_t length)
+pathPrependNonRootComponentZN(Path *this, const char *component, size_t length)
 {
     FUNCTION_TEST_BEGIN();
         FUNCTION_TEST_PARAM(PATH, this);
@@ -215,7 +442,7 @@ pathPrependComponentZN(Path *this, const char *component, size_t length)
 
     MEM_CONTEXT_TEMP_BEGIN();
     {
-        pathPrependComponentStr(this, strNewZN(component, length));
+        pathPrependNonRootComponentStr(this, strNewZN(component, length));
     }
     MEM_CONTEXT_TEMP_END();
 
@@ -224,7 +451,7 @@ pathPrependComponentZN(Path *this, const char *component, size_t length)
 
 /**********************************************************************************************************************************/
 static void
-pathPrependComponentZ(Path *this, const char *component)
+pathPrependNonRootComponentZ(Path *this, const char *component)
 {
     FUNCTION_TEST_BEGIN();
         FUNCTION_TEST_PARAM(PATH, this);
@@ -234,7 +461,7 @@ pathPrependComponentZ(Path *this, const char *component)
     ASSERT(this != NULL);
     ASSERT(component != NULL);
 
-    pathPrependComponentZN(this, component, strlen(component));
+    pathPrependNonRootComponentZN(this, component, strlen(component));
 
     FUNCTION_TEST_RETURN_VOID();
 }
@@ -312,7 +539,7 @@ pathParseNextComponent(Path *this, const char *path, size_t length)
 
     // The component length will be zero if there is a sequence of directory separators
     if (consumedSize > 0)
-        pathAppendComponentZN(this, path, consumedSize);
+        pathAppendNonRootComponentZN(this, path, consumedSize);
 
     // If the component ended with a directory separator, "consume" it
     if (consumedSize < length)
@@ -390,7 +617,7 @@ pathJoin(Path *const this, const Path *const basePath)
     if (pathGetComponentCount(basePath) > 0)
     {
         for (unsigned int idx = pathGetComponentCount(basePath) - 1; idx > 0; idx--)
-            pathPrependComponentStr(this, pathGetComponent(basePath, idx));
+            pathPrependNonRootComponentStr(this, pathGetComponent(basePath, idx));
     }
 
     FUNCTION_TEST_RETURN(PATH, pathClean(this));
@@ -704,7 +931,7 @@ pathGetParent(const Path *this)
 
     if (pathGetComponentCount(result) > 1)
     {
-        pathAppendComponentStr(result, DOTDOT_STR);
+        pathAppendNonRootComponentStr(result, DOTDOT_STR);
         pathClean(result);
     }
 
@@ -712,30 +939,37 @@ pathGetParent(const Path *this)
 }
 
 /**********************************************************************************************************************************/
-FN_EXTERN String *
-pathToString(const Path *this)
+FN_EXTERN const String *
+pathStr(const Path *this)
 {
-    FUNCTION_TEST_BEGIN();
-        FUNCTION_TEST_PARAM(PATH, this);
-    FUNCTION_TEST_END();
 
-    ASSERT(this != NULL);
-
-    String *result = strNew();
-
-    for (unsigned int idx = 0; idx < pathGetComponentCount(this); idx++)
-    {
-        if (idx > 0 && !strEmpty(result) && !strEndsWith(result, FSLASH_STR))
-            strCat(result, FSLASH_STR);
-
-        strCat(result, pathGetComponent(this, idx));
-    }
-
-    if (strEmpty(result))
-        result = strCat(result, DOT_STR);
-
-    FUNCTION_TEST_RETURN(STRING, result);
 }
+
+/**********************************************************************************************************************************/
+//FN_EXTERN String *
+//pathToString(const Path *this)
+//{
+//    FUNCTION_TEST_BEGIN();
+//        FUNCTION_TEST_PARAM(PATH, this);
+//    FUNCTION_TEST_END();
+//
+//    ASSERT(this != NULL);
+//
+//    String *result = strNew();
+//
+//    for (unsigned int idx = 0; idx < pathGetComponentCount(this); idx++)
+//    {
+//        if (idx > 0 && !strEmpty(result) && !strEndsWith(result, FSLASH_STR))
+//            strCat(result, FSLASH_STR);
+//
+//        strCat(result, pathGetComponent(this, idx));
+//    }
+//
+//    if (strEmpty(result))
+//        result = strCat(result, DOT_STR);
+//
+//    FUNCTION_TEST_RETURN(STRING, result);
+//}
 
 /**********************************************************************************************************************************/
 FN_EXTERN Path *
