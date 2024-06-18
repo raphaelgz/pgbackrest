@@ -76,7 +76,6 @@ Functions
 FN_EXTERN const String *pathStr(const Path *this);
 FN_EXTERN Path *pathMakeAbsolute(Path *this, const Path *basePath);
 FN_EXTERN Path *pathMakeRelativeTo(Path *this, const Path *basePath);
-//FN_EXTERN Path *pathRemoveComponent(Path *this, unsigned int index);
 FN_EXTERN Path *pathResolveExpression(const Path *this, const Path *basePath);
 
 FN_INLINE_ALWAYS const char *
