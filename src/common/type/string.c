@@ -713,7 +713,7 @@ strZNull(const String *const this)
 
 /**********************************************************************************************************************************/
 FN_EXTERN String *
-strReplace(String *const this, const size_t start, const size_t size, const String *const replace)
+strReplaceAt(String *const this, const size_t start, const size_t size, const String *const replace)
 {
     FUNCTION_TEST_BEGIN();
         FUNCTION_TEST_PARAM(STRING, this);
@@ -727,12 +727,12 @@ strReplace(String *const this, const size_t start, const size_t size, const Stri
     ASSERT(strSize(this) - start <= size);
     ASSERT(replace != NULL);
 
-    FUNCTION_TEST_RETURN(STRING, strReplaceZN(this, start, size, strZ(replace), strSize(replace)));
+    FUNCTION_TEST_RETURN(STRING, strReplaceAtZN(this, start, size, strZ(replace), strSize(replace)));
 }
 
 /**********************************************************************************************************************************/
 FN_EXTERN String *
-strReplaceZ(String *const this, const size_t start, const size_t size, const char *const replace)
+strReplaceAtZ(String *const this, const size_t start, const size_t size, const char *const replace)
 {
     FUNCTION_TEST_BEGIN();
         FUNCTION_TEST_PARAM(STRING, this);
@@ -746,12 +746,12 @@ strReplaceZ(String *const this, const size_t start, const size_t size, const cha
     ASSERT(strSize(this) - start <= size);
     ASSERT(replace != NULL);
 
-    FUNCTION_TEST_RETURN(STRING, strReplaceZN(this, start, size, replace, strlen(replace)));
+    FUNCTION_TEST_RETURN(STRING, strReplaceAtZN(this, start, size, replace, strlen(replace)));
 }
 
 /**********************************************************************************************************************************/
 FN_EXTERN String *
-strReplaceZN(String *const this, const size_t start, const size_t size, const char *const replace, const size_t replaceSize)
+strReplaceAtZN(String *const this, const size_t start, const size_t size, const char *const replace, const size_t replaceSize)
 {
     FUNCTION_TEST_BEGIN();
         FUNCTION_TEST_PARAM(STRING, this);
@@ -763,7 +763,7 @@ strReplaceZN(String *const this, const size_t start, const size_t size, const ch
 
     ASSERT(this != NULL);
     ASSERT(start <= strSize(this));
-    ASSERT(strSize(this) - start <= size);
+    ASSERT(size <= strSize(this) - start);
     ASSERT(replace != NULL);
 
     if (size != 0)
@@ -778,7 +778,7 @@ strReplaceZN(String *const this, const size_t start, const size_t size, const ch
 
         // Move the string suffix if needed
         if (middleSize != replaceSize)
-            memmove(this->pub.buffer + prefixSize + middleSize, this->pub.buffer + prefixSize + replaceSize, suffixSize);
+            memmove(this->pub.buffer + prefixSize + replaceSize, this->pub.buffer + prefixSize + middleSize, suffixSize);
 
         // Replace the requested string portion
         memcpy(this->pub.buffer + prefixSize, replace, replaceSize);
