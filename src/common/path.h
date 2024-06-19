@@ -12,18 +12,6 @@ Path object
 ***********************************************************************************************************************************/
 typedef struct Path Path;
 
-//typedef enum
-//{
-//    // The "var/lib/postgresql/16/main" part of "/var/lib/postgresql/16/main/PG_VERSION"
-//    pathPartDirectory,
-//
-//    // The "PG_VERSION" part of "/var/lib/postgresql/16/main/PG_VERSION"
-//    pathPartFile,
-//
-//    // The first "/" in "/var/lib/postgresql/16/main/PG_VERSION"
-//    pathPartRoot,
-//} PathPart;
-
 typedef enum
 {
     // No root
@@ -42,6 +30,7 @@ Constructors
 FN_EXTERN Path *pathNew(const String *path);
 FN_EXTERN Path *pathNewZ(const char *path);
 FN_EXTERN Path *pathNewZN(const char *path, size_t length);
+FN_EXTERN FN_PRINTF(1, 2) Path *pathNewFmt(const char *format, ...);
 FN_EXTERN Path *pathNewAbsolute(const String *path, const Path *basePath);
 FN_EXTERN Path *pathNewAbsoluteZ(const char *path, const Path *basePath);
 FN_EXTERN Path *pathNewAbsoluteZN(const char *path, size_t length, const Path *basePath);
@@ -65,18 +54,32 @@ FN_EXTERN bool pathIsRelative(const Path *this);
 FN_EXTERN bool pathIsRelativeTo(const Path *this, const Path *basePath);
 FN_EXTERN PathRootType pathGetRootType(const Path *this);
 FN_EXTERN const String *pathGetRoot(const Path *this);
+FN_EXTERN bool pathHasName(const Path *this);
 FN_EXTERN const String *pathGetName(const Path *this);
+FN_EXTERN Path *pathSetName(Path *this, const String *name);
+FN_EXTERN Path *pathSetNameZ(Path *this, const char *name);
+FN_EXTERN Path *pathSetNameZN(Path *this, const char *name, size_t length);
+FN_EXTERN FN_PRINTF(2, 3) Path *pathSetNameFmt(Path *this, const char *format, ...);
 FN_EXTERN const String *pathGetComponent(const Path *this, unsigned int index);
 FN_EXTERN unsigned int pathGetComponentCount(const Path *this);
+FN_EXTERN Path *pathAppendComponent(Path *this, const String *component);
+FN_EXTERN Path *pathAppendComponentZ(Path *this, const char *component);
+FN_EXTERN Path *pathAppendComponentZN(Path *this, const char *component, size_t length);
 FN_EXTERN Path *pathGetParent(const Path *this);
 
 /***********************************************************************************************************************************
 Functions
 ***********************************************************************************************************************************/
+FN_EXTERN bool pathEq(const Path *this, const Path *compare);
 FN_EXTERN const String *pathStr(const Path *this);
+FN_EXTERN Path *pathJoin(Path *this, const Path *basePath);
 FN_EXTERN Path *pathMakeAbsolute(Path *this, const Path *basePath);
 FN_EXTERN Path *pathMakeRelativeTo(Path *this, const Path *basePath);
 FN_EXTERN Path *pathResolveExpression(const Path *this, const Path *basePath);
+FN_EXTERN Path *pathResolveExpressionStr(const Path *this, const String *basePath);
+FN_EXTERN Path *pathResolveExpressionZ(const Path *this, const char *basePath);
+FN_EXTERN Path *pathResolveExpressionZN(const Path *this, const char *basePath, size_t length);
+FN_EXTERN FN_PRINTF(2, 3) Path *pathResolveExpressionFmt(const Path *this, const char *format, ...);
 
 FN_INLINE_ALWAYS const char *
 pathZ(const Path *const this)
