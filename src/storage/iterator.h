@@ -9,6 +9,7 @@ Object type
 ***********************************************************************************************************************************/
 typedef struct StorageIterator StorageIterator;
 
+#include "common/path.h"
 #include "common/type/string.h"
 #include "storage/info.h"
 
@@ -16,7 +17,7 @@ typedef struct StorageIterator StorageIterator;
 Constructors
 ***********************************************************************************************************************************/
 FN_EXTERN StorageIterator *storageItrNew(
-    void *driver, const String *path, StorageInfoLevel level, bool errorOnMissing, bool nullOnMissing, bool recurse,
+    void *driver, const Path *path, StorageInfoLevel level, bool errorOnMissing, bool nullOnMissing, bool recurse,
     SortOrder sortOrder, const String *expression);
 
 /***********************************************************************************************************************************
