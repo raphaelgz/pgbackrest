@@ -12,7 +12,7 @@ Constructors
 typedef struct StorageReadInterface
 {
     StringId type;                                                  // Storage type
-    const String *name;
+    const Path *path;
     bool compressible;                                              // Is this file compressible?
     unsigned int compressLevel;                                     // Level to use for compression
     bool ignoreMissing;

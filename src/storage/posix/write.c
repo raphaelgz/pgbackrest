@@ -24,8 +24,8 @@ typedef struct StorageWritePosix
     StorageWriteInterface interface;                                // Interface
     StoragePosix *storage;                                          // Storage that created this object
 
-    const String *nameTmp;
-    const String *path;
+    const Path *fileTmp;
+    const Path *directory;
     int fd;                                                         // File descriptor
 } StorageWritePosix;
 
@@ -58,7 +58,7 @@ storageWritePosixFreeResource(THIS_VOID)
 
     ASSERT(this != NULL);
 
-    THROW_ON_SYS_ERROR_FMT(close(this->fd) == -1, FileCloseError, STORAGE_ERROR_WRITE_CLOSE, strZ(this->nameTmp));
+    THROW_ON_SYS_ERROR_FMT(close(this->fd) == -1, FileCloseError, STORAGE_ERROR_WRITE_CLOSE, pathZ(this->fileTmp));
 
     FUNCTION_LOG_RETURN_VOID();
 }
@@ -93,25 +93,25 @@ storageWritePosixOpen(THIS_VOID)
     // Open the file
     const int flags = O_CREAT | O_WRONLY | (this->interface.truncate ? O_TRUNC : 0);
 
-    this->fd = open(strZ(this->nameTmp), flags, this->interface.modeFile);
+    this->fd = open(pathZ(this->fileTmp), flags, this->interface.modeFile);
 
     // Attempt to create the path if it is missing
     if (this->fd == -1 && errno == ENOENT && this->interface.createPath)                                            // {vm_covered}
     {
         // Create the path
-        storageInterfacePathCreateP(this->storage, this->path, false, false, this->interface.modePath);
+        storageInterfacePathCreateP(this->storage, this->directory, false, false, this->interface.modePath);
 
         // Open file again
-        this->fd = open(strZ(this->nameTmp), flags, this->interface.modeFile);
+        this->fd = open(pathZ(this->fileTmp), flags, this->interface.modeFile);
     }
 
     // Handle errors
     if (this->fd == -1)
     {
         if (errno == ENOENT)                                                                                        // {vm_covered}
-            THROW_FMT(FileMissingError, STORAGE_ERROR_WRITE_MISSING, strZ(this->interface.name));
+            THROW_FMT(FileMissingError, STORAGE_ERROR_WRITE_MISSING, pathZ(this->interface.path));
         else
-            THROW_SYS_ERROR_FMT(FileOpenError, STORAGE_ERROR_WRITE_OPEN, strZ(this->interface.name));               // {vm_covered}
+            THROW_SYS_ERROR_FMT(FileOpenError, STORAGE_ERROR_WRITE_OPEN, pathZ(this->interface.path));               // {vm_covered}
     }
 
     // Set free callback to ensure the file descriptor is freed
@@ -123,7 +123,7 @@ storageWritePosixOpen(THIS_VOID)
         MEM_CONTEXT_TEMP_BEGIN()
         {
             const StorageInfo info = storageInterfaceInfoP(
-                this->storage, this->nameTmp, storageInfoLevelDetail, .followLink = true);
+                this->storage, this->fileTmp, storageInfoLevelDetail, .followLink = true);
             ASSERT(info.exists);
             uid_t updateUserId = userIdFromName(this->interface.user);
             gid_t updateGroupId = groupIdFromName(this->interface.group);
@@ -138,8 +138,8 @@ storageWritePosixOpen(THIS_VOID)
             if (updateUserId != info.userId || updateGroupId != info.groupId)
             {
                 THROW_ON_SYS_ERROR_FMT(
-                    chown(strZ(this->nameTmp), updateUserId, updateGroupId) == -1, FileOwnerError,
-                    "unable to set ownership for '%s' to %s%s:%s%s from %s[%u]:%s[%u]", strZ(this->nameTmp),
+                    chown(pathZ(this->fileTmp), updateUserId, updateGroupId) == -1, FileOwnerError,
+                    "unable to set ownership for '%s' to %s%s:%s%s from %s[%u]:%s[%u]", pathZ(this->fileTmp),
                     storageWritePosixOpenOwner(this->interface.user, "[none]"),
                     storageWritePosixOpenOwnerId(this->interface.user, updateUserId),
                     storageWritePosixOpenOwner(this->interface.group, "[none]"),
@@ -173,7 +173,7 @@ storageWritePosix(THIS_VOID, const Buffer *const buffer)
 
     // Write the data
     if (write(this->fd, bufPtrConst(buffer), bufUsed(buffer)) != (ssize_t)bufUsed(buffer))
-        THROW_SYS_ERROR_FMT(FileWriteError, "unable to write '%s'", strZ(this->nameTmp));
+        THROW_SYS_ERROR_FMT(FileWriteError, "unable to write '%s'", pathZ(this->fileTmp));
 
     FUNCTION_LOG_RETURN_VOID();
 }
@@ -197,11 +197,11 @@ storageWritePosixClose(THIS_VOID)
     {
         // Sync the file
         if (this->interface.syncFile)
-            THROW_ON_SYS_ERROR_FMT(fsync(this->fd) == -1, FileSyncError, STORAGE_ERROR_WRITE_SYNC, strZ(this->nameTmp));
+            THROW_ON_SYS_ERROR_FMT(fsync(this->fd) == -1, FileSyncError, STORAGE_ERROR_WRITE_SYNC, pathZ(this->fileTmp));
 
         // Close the file
         memContextCallbackClear(objMemContext(this));
-        THROW_ON_SYS_ERROR_FMT(close(this->fd) == -1, FileCloseError, STORAGE_ERROR_WRITE_CLOSE, strZ(this->nameTmp));
+        THROW_ON_SYS_ERROR_FMT(close(this->fd) == -1, FileCloseError, STORAGE_ERROR_WRITE_CLOSE, pathZ(this->fileTmp));
         this->fd = -1;
 
         // Update modified time
@@ -209,21 +209,21 @@ storageWritePosixClose(THIS_VOID)
         {
             THROW_ON_SYS_ERROR_FMT(
                 utime(
-                    strZ(this->nameTmp),
+                    pathZ(this->fileTmp),
                     &((struct utimbuf){.actime = this->interface.timeModified, .modtime = this->interface.timeModified})) == -1,
-                FileInfoError, "unable to set time for '%s'", strZ(this->nameTmp));
+                FileInfoError, "unable to set time for '%s'", pathZ(this->fileTmp));
         }
 
         // Rename from temp file
         if (this->interface.atomic)
         {
-            if (rename(strZ(this->nameTmp), strZ(this->interface.name)) == -1)
-                THROW_SYS_ERROR_FMT(FileMoveError, "unable to move '%s' to '%s'", strZ(this->nameTmp), strZ(this->interface.name));
+            if (rename(pathZ(this->fileTmp), pathZ(this->interface.path)) == -1)
+                THROW_SYS_ERROR_FMT(FileMoveError, "unable to move '%s' to '%s'", pathZ(this->fileTmp), pathZ(this->interface.path));
         }
 
         // Sync the path
         if (this->interface.syncPath)
-            storageInterfacePathSyncP(this->storage, this->path);
+            storageInterfacePathSyncP(this->storage, this->directory);
     }
 
     FUNCTION_LOG_RETURN_VOID();
@@ -249,13 +249,13 @@ storageWritePosixFd(const THIS_VOID)
 /**********************************************************************************************************************************/
 FN_EXTERN StorageWrite *
 storageWritePosixNew(
-    StoragePosix *const storage, const String *const name, const mode_t modeFile, const mode_t modePath, const String *const user,
+    StoragePosix *const storage, const Path *const file, const mode_t modeFile, const mode_t modePath, const String *const user,
     const String *const group, const time_t timeModified, const bool createPath, const bool syncFile, const bool syncPath,
     const bool atomic, const bool truncate)
 {
     FUNCTION_LOG_BEGIN(logLevelTrace);
         FUNCTION_LOG_PARAM(STORAGE_POSIX, storage);
-        FUNCTION_LOG_PARAM(STRING, name);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(MODE, modeFile);
         FUNCTION_LOG_PARAM(MODE, modePath);
         FUNCTION_LOG_PARAM(STRING, user);
@@ -269,7 +269,7 @@ storageWritePosixNew(
     FUNCTION_LOG_END();
 
     ASSERT(storage != NULL);
-    ASSERT(name != NULL);
+    ASSERT(file != NULL);
     ASSERT(modeFile != 0);
     ASSERT(modePath != 0);
 
@@ -278,13 +278,13 @@ storageWritePosixNew(
         *this = (StorageWritePosix)
         {
             .storage = storage,
-            .path = strPath(name),
+            .directory = pathGetParent(file),
             .fd = -1,
 
             .interface = (StorageWriteInterface)
             {
                 .type = STORAGE_POSIX_TYPE,
-                .name = strDup(name),
+                .path = pathDup(file),
                 .atomic = atomic,
                 .createPath = createPath,
                 .group = strDup(group),
@@ -306,8 +306,15 @@ storageWritePosixNew(
             },
         };
 
-        // Create temp file name
-        this->nameTmp = atomic ? strNewFmt("%s." STORAGE_FILE_TEMP_EXT, strZ(name)) : this->interface.name;
+        // Create temp file path
+        if (atomic)
+        {
+            const String *const name = pathGetName(this->interface.path);
+
+            this->fileTmp = pathSetNameFmt(pathDup(this->interface.path), "%s." STORAGE_FILE_TEMP_EXT, strZ(name));
+        }
+        else
+            this->fileTmp = this->interface.path;
     }
     OBJ_NEW_END();
 

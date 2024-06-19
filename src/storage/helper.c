@@ -145,7 +145,7 @@ storageLocal(void)
 
         MEM_CONTEXT_BEGIN(storageHelper.memContext)
         {
-            storageHelper.storageLocal = storagePosixNewP(FSLASH_STR);
+            storageHelper.storageLocal = storagePosixNewStrP(FSLASH_STR);
         }
         MEM_CONTEXT_END();
     }
@@ -164,7 +164,7 @@ storageLocalWrite(void)
 
         MEM_CONTEXT_BEGIN(storageHelper.memContext)
         {
-            storageHelper.storageLocalWrite = storagePosixNewP(FSLASH_STR, .write = true);
+            storageHelper.storageLocalWrite = storagePosixNewStrP(FSLASH_STR, .write = true);
         }
         MEM_CONTEXT_END();
     }
@@ -194,7 +194,7 @@ storagePgGet(const unsigned int pgIdx, const bool write)
     }
     // Use Posix storage
     else
-        result = storagePosixNewP(cfgOptionIdxStr(cfgOptPgPath, pgIdx), .write = write);
+        result = storagePosixNewStrP(cfgOptionIdxStr(cfgOptPgPath, pgIdx), .write = write);
 
     FUNCTION_TEST_RETURN(STORAGE, result);
 }
@@ -287,53 +287,43 @@ storageHelperRepoInit(void)
 }
 
 /***********************************************************************************************************************************
-Construct a repo path from an expression and path
+Construct a repo path from a path expression
 ***********************************************************************************************************************************/
-static String *
-storageRepoPathExpression(const String *const expression, const String *const path)
+static Path *
+storageRepoPathExpression(const Path *const path)
 {
     FUNCTION_TEST_BEGIN();
-        FUNCTION_TEST_PARAM(STRING, expression);
         FUNCTION_TEST_PARAM(STRING, path);
     FUNCTION_TEST_END();
 
-    ASSERT(expression != NULL);
+    ASSERT(path != NULL);
 
-    String *const result = strNew();
+    Path *result = NULL;
+    const String *const expression = pathGetRoot(path);
 
     if (strEq(expression, STORAGE_REPO_ARCHIVE_STR))
     {
-        // Construct the base path
         if (storageHelper.stanza != NULL)
-            strCatFmt(result, STORAGE_PATH_ARCHIVE "/%s", strZ(storageHelper.stanza));
+            result = pathResolveExpressionFmt(path, STORAGE_PATH_ARCHIVE "/%s", strZ(storageHelper.stanza));
         else
-            strCat(result, STORAGE_PATH_ARCHIVE_STR);
+            result = pathResolveExpressionStr(path, STORAGE_PATH_ARCHIVE_STR);
 
-        // If a subpath should be appended, determine if it is WAL path, else just append the subpath
-        if (path != NULL)
+        // Determine if the path expression is a WAL path (3 components: the root expression, a directory and the wal name)
+        if (pathGetComponentCount(path) == 3 && regExpMatch(storageHelper.walRegExp, pathGetComponent(path, 2)))
         {
-            StringList *const pathSplit = strLstNewSplitZ(path, "/");
-            const String *const file = strLstSize(pathSplit) == 2 ? strLstGet(pathSplit, 1) : NULL;
+            const String *const walName = pathGetComponent(path, 2);
 
-            if (file != NULL && regExpMatch(storageHelper.walRegExp, file))
-                strCatFmt(result, "/%s/%.16s/%s", strZ(strLstGet(pathSplit, 0)), strZ(file), strZ(file));
-            else
-                strCatFmt(result, "/%s", strZ(path));
-
-            strLstFree(pathSplit);
+            pathAppendComponent(result, DOTDOT_STR);
+            pathAppendComponentZN(result, strZ(walName), 16);
+            pathAppendComponent(result, walName);
         }
     }
     else if (strEq(expression, STORAGE_REPO_BACKUP_STR))
     {
-        // Construct the base path
         if (storageHelper.stanza != NULL)
-            strCatFmt(result, STORAGE_PATH_BACKUP "/%s", strZ(storageHelper.stanza));
+            result = pathResolveExpressionFmt(path, STORAGE_PATH_BACKUP "/%s", strZ(storageHelper.stanza));
         else
-            strCatZ(result, STORAGE_PATH_BACKUP);
-
-        // Append subpath if provided
-        if (path != NULL)
-            strCatFmt(result, "/%s", strZ(path));
+            result = pathResolveExpressionZ(path, STORAGE_PATH_BACKUP);
     }
     else
         THROW_FMT(AssertError, "invalid expression '%s'", strZ(expression));
@@ -386,7 +376,7 @@ storageRepoGet(const unsigned int repoIdx, const bool write)
         {
             CHECK(AssertError, type == STORAGE_POSIX_TYPE, "invalid storage type");
 
-            result = storagePosixNewP(
+            result = storagePosixNewStrP(
                 cfgOptionIdxStr(cfgOptRepoPath, repoIdx), .write = write, .pathExpressionFunction = storageRepoPathExpression);
         }
     }
@@ -480,44 +470,29 @@ storageRepoWrite(void)
 /***********************************************************************************************************************************
 Spool storage path expression
 ***********************************************************************************************************************************/
-static String *
-storageSpoolPathExpression(const String *const expression, const String *const path)
+static Path *
+storageSpoolPathExpression(const Path *const path)
 {
     FUNCTION_TEST_BEGIN();
-        FUNCTION_TEST_PARAM(STRING, expression);
-        FUNCTION_TEST_PARAM(STRING, path);
+        FUNCTION_TEST_PARAM(PATH, path);
     FUNCTION_TEST_END();
 
-    ASSERT(expression != NULL);
+    ASSERT(path != NULL);
     ASSERT(storageHelper.stanza != NULL);
 
-    String *result = NULL;
+    Path *result = NULL;
+    const String *const expression = pathGetRoot(path);
 
     if (strEqZ(expression, STORAGE_SPOOL_ARCHIVE))
-    {
-        if (path == NULL)
-            result = strNewFmt(STORAGE_PATH_ARCHIVE "/%s", strZ(storageHelper.stanza));
-        else
-            result = strNewFmt(STORAGE_PATH_ARCHIVE "/%s/%s", strZ(storageHelper.stanza), strZ(path));
-    }
+        result = pathResolveExpressionFmt(path, STORAGE_PATH_ARCHIVE "/%s", strZ(storageHelper.stanza));
     else if (strEqZ(expression, STORAGE_SPOOL_ARCHIVE_IN))
-    {
-        if (path == NULL)
-            result = strNewFmt(STORAGE_PATH_ARCHIVE "/%s/in", strZ(storageHelper.stanza));
-        else
-            result = strNewFmt(STORAGE_PATH_ARCHIVE "/%s/in/%s", strZ(storageHelper.stanza), strZ(path));
-    }
+        result = pathResolveExpressionFmt(path, STORAGE_PATH_ARCHIVE "/%s/in", strZ(storageHelper.stanza));
     else if (strEqZ(expression, STORAGE_SPOOL_ARCHIVE_OUT))
-    {
-        if (path == NULL)
-            result = strNewFmt(STORAGE_PATH_ARCHIVE "/%s/out", strZ(storageHelper.stanza));
-        else
-            result = strNewFmt(STORAGE_PATH_ARCHIVE "/%s/out/%s", strZ(storageHelper.stanza), strZ(path));
-    }
+        result = pathResolveExpressionFmt(path, STORAGE_PATH_ARCHIVE "/%s/out", strZ(storageHelper.stanza));
     else
         THROW_FMT(AssertError, "invalid expression '%s'", strZ(expression));
 
-    FUNCTION_TEST_RETURN(STRING, result);
+    FUNCTION_TEST_RETURN(PATH, result);
 }
 
 /**********************************************************************************************************************************/
@@ -533,7 +508,7 @@ storageSpool(void)
 
         MEM_CONTEXT_BEGIN(storageHelper.memContext)
         {
-            storageHelper.storageSpool = storagePosixNewP(
+            storageHelper.storageSpool = storagePosixNewStrP(
                 cfgOptionStr(cfgOptSpoolPath), .pathExpressionFunction = storageSpoolPathExpression);
         }
         MEM_CONTEXT_END();
@@ -558,7 +533,7 @@ storageSpoolWrite(void)
 
         MEM_CONTEXT_BEGIN(storageHelper.memContext)
         {
-            storageHelper.storageSpoolWrite = storagePosixNewP(
+            storageHelper.storageSpoolWrite = storagePosixNewStrP(
                 cfgOptionStr(cfgOptSpoolPath), .write = true, .pathExpressionFunction = storageSpoolPathExpression);
         }
         MEM_CONTEXT_END();

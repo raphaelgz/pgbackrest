@@ -9,6 +9,7 @@ Object type
 ***********************************************************************************************************************************/
 typedef struct StorageRead StorageRead;
 
+#include "common/path.h"
 #include "common/io/read.h"
 #include "common/type/object.h"
 #include "common/type/stringId.h"
@@ -53,11 +54,11 @@ storageReadLimit(const StorageRead *const this)
     return THIS_PUB(StorageRead)->interface->limit;
 }
 
-// File name
-FN_INLINE_ALWAYS const String *
-storageReadName(const StorageRead *const this)
+// File path
+FN_INLINE_ALWAYS const Path *
+storageReadPath(const StorageRead *const this)
 {
-    return THIS_PUB(StorageRead)->interface->name;
+    return THIS_PUB(StorageRead)->interface->path;
 }
 
 // Is there a read limit? NULL for no limit.

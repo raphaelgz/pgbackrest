@@ -202,7 +202,7 @@ storageGet(StorageRead *const file, const StorageGetParam param)
 
                 // If an exact read make sure the size is as expected
                 if (bufUsed(result) != param.exactSize)
-                    THROW_FMT(FileReadError, "unable to read %zu byte(s) from '%s'", param.exactSize, strZ(pathToString(storageReadPath(file))));
+                    THROW_FMT(FileReadError, "unable to read %zu byte(s) from '%s'", param.exactSize, pathZ(storageReadPath(file)));
             }
             // Else read entire file
             else
@@ -274,7 +274,7 @@ storageInfo(const Storage *const this, const Path *const fileExp, StorageInfoPar
 
         // Error if the file missing and not ignoring
         if (!result.exists && !param.ignoreMissing)
-            THROW_FMT(FileOpenError, STORAGE_ERROR_INFO_MISSING, strZ(pathToString(file)));
+            THROW_FMT(FileOpenError, STORAGE_ERROR_INFO_MISSING, pathZ(file));
 
         // Dup the strings into the prior context
         MEM_CONTEXT_PRIOR_BEGIN()
@@ -540,41 +540,27 @@ storagePath(const Storage *const this, const Path *pathExp, const StoragePathPar
 
             // Evaluated path cannot be NULL
             if (pathEvaluated == NULL)
-                THROW_FMT(AssertError, "evaluated path '%s' cannot be null", strZ(pathToString(pathExp)));
+                THROW_FMT(AssertError, "evaluated path '%s' cannot be null", pathZ(pathExp));
 
             // Evaluated path must be relative
             if (!pathIsRelative(pathEvaluated))
-            {
-                THROW_FMT(
-                    AssertError,
-                    "evaluated path '%s' ('%s') must be relative",
-                    strZ(pathToString(pathExp)),
-                    strZ(pathToString(pathEvaluated)));
-            }
+                THROW_FMT(AssertError, "evaluated path '%s' ('%s') must be relative", pathZ(pathExp), pathZ(pathEvaluated));
 
             result = pathMakeAbsolute(pathEvaluated, this->path);
-
-            pathFree(pathEvaluated);
         }
         // If the path expression is absolute then use it as is
         else if (pathIsAbsolute(pathExp))
         {
             // Make sure the base storage path is contained within the path expression
             if (!param.noEnforce && !pathIsRelativeTo(pathExp, this->path))
-            {
-                THROW_FMT(
-                    AssertError,
-                    "absolute path '%s' is not in base path '%s'",
-                    strZ(pathToString(pathExp)),
-                    strZ(pathToString(this->path)));
-            }
+                THROW_FMT(AssertError, "absolute path '%s' is not in base path '%s'", pathZ(pathExp), pathZ(this->path));
 
             result = pathDup(pathExp);
         }
         // Else path expression is relative so combine it with the base storage path
         else
         {
-            result = pathMakeAbsolute(pathExp, this->path);
+            result = pathMakeAbsolute(pathDup(pathExp), this->path);
         }
     }
 
@@ -651,7 +637,7 @@ storagePathRemove(const Storage *const this, const Path *const pathExp, const St
 
         // Call driver function
         if (!storageInterfacePathRemoveP(storageDriver(this), path, param.recurse) && param.errorOnMissing)
-            THROW_FMT(PathRemoveError, STORAGE_ERROR_PATH_REMOVE_MISSING, strZ(pathToString(path)));
+            THROW_FMT(PathRemoveError, STORAGE_ERROR_PATH_REMOVE_MISSING, pathZ(path));
     }
     MEM_CONTEXT_TEMP_END();
 

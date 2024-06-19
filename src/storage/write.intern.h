@@ -4,6 +4,7 @@ Storage Write Interface Internal
 #ifndef STORAGE_WRITE_INTERN_H
 #define STORAGE_WRITE_INTERN_H
 
+#include "common/path.h"
 #include "common/io/write.h"
 #include "version.h"
 
@@ -18,7 +19,7 @@ Constructors
 typedef struct StorageWriteInterface
 {
     StringId type;                                                  // Storage type
-    const String *name;
+    const Path *path;
 
     bool atomic;
     bool truncate;                                                  // Truncate file if it exists
