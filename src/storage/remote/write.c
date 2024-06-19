@@ -83,7 +83,7 @@ storageWriteRemoteOpen(THIS_VOID)
         ProtocolCommand *command = protocolCommandNew(PROTOCOL_COMMAND_STORAGE_OPEN_WRITE);
         PackWrite *const param = protocolCommandParam(command);
 
-        pckWriteStrP(param, this->interface.name);
+        pckWriteStrP(param, pathStr(this->interface.path));
         pckWriteModeP(param, this->interface.modeFile);
         pckWriteModeP(param, this->interface.modePath);
         pckWriteStrP(param, this->interface.user);
@@ -183,13 +183,13 @@ storageWriteRemoteClose(THIS_VOID)
 /**********************************************************************************************************************************/
 FN_EXTERN StorageWrite *
 storageWriteRemoteNew(
-    StorageRemote *storage, ProtocolClient *client, const String *name, mode_t modeFile, mode_t modePath, const String *user,
+    StorageRemote *storage, ProtocolClient *client, const Path *file, mode_t modeFile, mode_t modePath, const String *user,
     const String *group, time_t timeModified, bool createPath, bool syncFile, bool syncPath, bool atomic, bool compressible,
     unsigned int compressLevel)
 {
     FUNCTION_LOG_BEGIN(logLevelTrace);
         FUNCTION_LOG_PARAM(STORAGE_REMOTE, storage);
-        FUNCTION_LOG_PARAM(STRING, name);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(MODE, modeFile);
         FUNCTION_LOG_PARAM(MODE, modePath);
         FUNCTION_LOG_PARAM(STRING, user);
@@ -205,7 +205,7 @@ storageWriteRemoteNew(
 
     ASSERT(storage != NULL);
     ASSERT(client != NULL);
-    ASSERT(name != NULL);
+    ASSERT(file != NULL);
     ASSERT(modeFile != 0);
     ASSERT(modePath != 0);
 
@@ -219,7 +219,7 @@ storageWriteRemoteNew(
             .interface = (StorageWriteInterface)
             {
                 .type = STORAGE_REMOTE_TYPE,
-                .name = strDup(name),
+                .path = pathDup(file),
                 .atomic = atomic,
                 .compressible = compressible,
                 .compressLevel = compressLevel,

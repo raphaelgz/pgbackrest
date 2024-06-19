@@ -117,13 +117,13 @@ storageRemoteInfoGet(StorageRemoteInfoData *const data, PackRead *const read, St
 }
 
 static StorageInfo
-storageRemoteInfo(THIS_VOID, const String *file, StorageInfoLevel level, StorageInterfaceInfoParam param)
+storageRemoteInfo(THIS_VOID, const Path *file, StorageInfoLevel level, StorageInterfaceInfoParam param)
 {
     THIS(StorageRemote);
 
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE_REMOTE, this);
-        FUNCTION_LOG_PARAM(STRING, file);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(ENUM, level);
         FUNCTION_LOG_PARAM(BOOL, param.followLink);
     FUNCTION_LOG_END();
@@ -139,7 +139,7 @@ storageRemoteInfo(THIS_VOID, const String *file, StorageInfoLevel level, Storage
         ProtocolCommand *command = protocolCommandNew(PROTOCOL_COMMAND_STORAGE_INFO);
         PackWrite *const commandParam = protocolCommandParam(command);
 
-        pckWriteStrP(commandParam, file);
+        pckWriteStrP(commandParam, pathStr(file));
         pckWriteU32P(commandParam, level);
         pckWriteBoolP(commandParam, param.followLink);
 
@@ -173,14 +173,14 @@ storageRemoteInfo(THIS_VOID, const String *file, StorageInfoLevel level, Storage
 /**********************************************************************************************************************************/
 static void
 storageRemoteLinkCreate(
-    THIS_VOID, const String *const target, const String *const linkPath, const StorageInterfaceLinkCreateParam param)
+    THIS_VOID, const Path *const target, const Path *const linkPath, const StorageInterfaceLinkCreateParam param)
 {
     THIS(StorageRemote);
 
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE_REMOTE, this);
-        FUNCTION_LOG_PARAM(STRING, target);
-        FUNCTION_LOG_PARAM(STRING, linkPath);
+        FUNCTION_LOG_PARAM(PATH, target);
+        FUNCTION_LOG_PARAM(PATH, linkPath);
         FUNCTION_LOG_PARAM(ENUM, param.linkType);
     FUNCTION_LOG_END();
 
@@ -193,8 +193,8 @@ storageRemoteLinkCreate(
         ProtocolCommand *const command = protocolCommandNew(PROTOCOL_COMMAND_STORAGE_LINK_CREATE);
         PackWrite *const commandParam = protocolCommandParam(command);
 
-        pckWriteStrP(commandParam, target);
-        pckWriteStrP(commandParam, linkPath);
+        pckWriteStrP(commandParam, pathStr(target));
+        pckWriteStrP(commandParam, pathStr(linkPath));
         pckWriteU32P(commandParam, param.linkType);
 
         protocolClientExecute(this->client, command, false);
@@ -206,13 +206,13 @@ storageRemoteLinkCreate(
 
 /**********************************************************************************************************************************/
 static StorageList *
-storageRemoteList(THIS_VOID, const String *const path, const StorageInfoLevel level, const StorageInterfaceListParam param)
+storageRemoteList(THIS_VOID, const Path *const path, const StorageInfoLevel level, const StorageInterfaceListParam param)
 {
     THIS(StorageRemote);
 
     FUNCTION_LOG_BEGIN(logLevelTrace);
         FUNCTION_LOG_PARAM(STORAGE_REMOTE, this);
-        FUNCTION_LOG_PARAM(STRING, path);
+        FUNCTION_LOG_PARAM(PATH, path);
         FUNCTION_LOG_PARAM(ENUM, level);
         (void)param;                                                // No parameters are used
     FUNCTION_LOG_END();
@@ -227,7 +227,7 @@ storageRemoteList(THIS_VOID, const String *const path, const StorageInfoLevel le
         ProtocolCommand *command = protocolCommandNew(PROTOCOL_COMMAND_STORAGE_LIST);
         PackWrite *const commandParam = protocolCommandParam(command);
 
-        pckWriteStrP(commandParam, path);
+        pckWriteStrP(commandParam, pathStr(path));
         pckWriteU32P(commandParam, level);
 
         // Put command
@@ -271,13 +271,13 @@ storageRemoteList(THIS_VOID, const String *const path, const StorageInfoLevel le
 
 /**********************************************************************************************************************************/
 static StorageRead *
-storageRemoteNewRead(THIS_VOID, const String *file, bool ignoreMissing, StorageInterfaceNewReadParam param)
+storageRemoteNewRead(THIS_VOID, const Path *file, bool ignoreMissing, StorageInterfaceNewReadParam param)
 {
     THIS(StorageRemote);
 
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE_REMOTE, this);
-        FUNCTION_LOG_PARAM(STRING, file);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(BOOL, ignoreMissing);
         FUNCTION_LOG_PARAM(BOOL, param.compressible);
         FUNCTION_LOG_PARAM(UINT64, param.offset);
@@ -297,13 +297,13 @@ storageRemoteNewRead(THIS_VOID, const String *file, bool ignoreMissing, StorageI
 /**********************************************************************************************************************************/
 static StorageWrite *
 storageRemoteNewWrite(
-    THIS_VOID, const String *file, StorageInterfaceNewWriteParam param)
+    THIS_VOID, const Path *file, StorageInterfaceNewWriteParam param)
 {
     THIS(StorageRemote);
 
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE_REMOTE, this);
-        FUNCTION_LOG_PARAM(STRING, file);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(MODE, param.modeFile);
         FUNCTION_LOG_PARAM(MODE, param.modePath);
         FUNCTION_LOG_PARAM(STRING, param.user);
@@ -331,13 +331,13 @@ storageRemoteNewWrite(
 /**********************************************************************************************************************************/
 static void
 storageRemotePathCreate(
-    THIS_VOID, const String *path, bool errorOnExists, bool noParentCreate, mode_t mode, StorageInterfacePathCreateParam param)
+    THIS_VOID, const Path *path, bool errorOnExists, bool noParentCreate, mode_t mode, StorageInterfacePathCreateParam param)
 {
     THIS(StorageRemote);
 
     FUNCTION_LOG_BEGIN(logLevelTrace);
         FUNCTION_LOG_PARAM(STORAGE_REMOTE, this);
-        FUNCTION_LOG_PARAM(STRING, path);
+        FUNCTION_LOG_PARAM(PATH, path);
         FUNCTION_LOG_PARAM(BOOL, errorOnExists);
         FUNCTION_LOG_PARAM(BOOL, noParentCreate);
         FUNCTION_LOG_PARAM(MODE, mode);
@@ -352,7 +352,7 @@ storageRemotePathCreate(
         ProtocolCommand *command = protocolCommandNew(PROTOCOL_COMMAND_STORAGE_PATH_CREATE);
         PackWrite *const commandParam = protocolCommandParam(command);
 
-        pckWriteStrP(commandParam, path);
+        pckWriteStrP(commandParam, pathStr(path));
         pckWriteBoolP(commandParam, errorOnExists);
         pckWriteBoolP(commandParam, noParentCreate);
         pckWriteModeP(commandParam, mode);
@@ -366,13 +366,13 @@ storageRemotePathCreate(
 
 /**********************************************************************************************************************************/
 static bool
-storageRemotePathRemove(THIS_VOID, const String *path, bool recurse, StorageInterfacePathRemoveParam param)
+storageRemotePathRemove(THIS_VOID, const Path *path, bool recurse, StorageInterfacePathRemoveParam param)
 {
     THIS(StorageRemote);
 
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE_REMOTE, this);
-        FUNCTION_LOG_PARAM(STRING, path);
+        FUNCTION_LOG_PARAM(PATH, path);
         FUNCTION_LOG_PARAM(BOOL, recurse);
         (void)param;                                                // No parameters are used
     FUNCTION_LOG_END();
@@ -387,7 +387,7 @@ storageRemotePathRemove(THIS_VOID, const String *path, bool recurse, StorageInte
         ProtocolCommand *command = protocolCommandNew(PROTOCOL_COMMAND_STORAGE_PATH_REMOVE);
         PackWrite *const commandParam = protocolCommandParam(command);
 
-        pckWriteStrP(commandParam, path);
+        pckWriteStrP(commandParam, pathStr(path));
         pckWriteBoolP(commandParam, recurse);
 
         result = pckReadBoolP(protocolClientExecute(this->client, command, true));
@@ -399,13 +399,13 @@ storageRemotePathRemove(THIS_VOID, const String *path, bool recurse, StorageInte
 
 /**********************************************************************************************************************************/
 static void
-storageRemotePathSync(THIS_VOID, const String *path, StorageInterfacePathSyncParam param)
+storageRemotePathSync(THIS_VOID, const Path *path, StorageInterfacePathSyncParam param)
 {
     THIS(StorageRemote);
 
     FUNCTION_LOG_BEGIN(logLevelTrace);
         FUNCTION_LOG_PARAM(STORAGE_REMOTE, this);
-        FUNCTION_LOG_PARAM(STRING, path);
+        FUNCTION_LOG_PARAM(PATH, path);
         (void)param;                                                // No parameters are used
     FUNCTION_LOG_END();
 
@@ -415,7 +415,7 @@ storageRemotePathSync(THIS_VOID, const String *path, StorageInterfacePathSyncPar
     MEM_CONTEXT_TEMP_BEGIN()
     {
         ProtocolCommand *command = protocolCommandNew(PROTOCOL_COMMAND_STORAGE_PATH_SYNC);
-        pckWriteStrP(protocolCommandParam(command), path);
+        pckWriteStrP(protocolCommandParam(command), pathStr(path));
 
         protocolClientExecute(this->client, command, false);
     }
@@ -426,13 +426,13 @@ storageRemotePathSync(THIS_VOID, const String *path, StorageInterfacePathSyncPar
 
 /**********************************************************************************************************************************/
 static void
-storageRemoteRemove(THIS_VOID, const String *file, StorageInterfaceRemoveParam param)
+storageRemoteRemove(THIS_VOID, const Path *file, StorageInterfaceRemoveParam param)
 {
     THIS(StorageRemote);
 
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE_REMOTE, this);
-        FUNCTION_LOG_PARAM(STRING, file);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(BOOL, param.errorOnMissing);
     FUNCTION_LOG_END();
 
@@ -444,7 +444,7 @@ storageRemoteRemove(THIS_VOID, const String *file, StorageInterfaceRemoveParam p
         ProtocolCommand *command = protocolCommandNew(PROTOCOL_COMMAND_STORAGE_REMOVE);
         PackWrite *const commandParam = protocolCommandParam(command);
 
-        pckWriteStrP(commandParam, file);
+        pckWriteStrP(commandParam, pathStr(file));
         pckWriteBoolP(commandParam, param.errorOnMissing);
 
         protocolClientExecute(this->client, command, false);
@@ -486,7 +486,7 @@ storageRemoteNew(
     ASSERT(modePath != 0);
     ASSERT(client != NULL);
 
-    const String *path;
+    const Path *path;
 
     OBJ_NEW_BEGIN(StorageRemote, .childQty = MEM_CONTEXT_QTY_MAX)
     {
@@ -503,14 +503,15 @@ storageRemoteNew(
             // Execute command and get result
             PackRead *result = protocolClientExecute(this->client, protocolCommandNew(PROTOCOL_COMMAND_STORAGE_FEATURE), true);
 
+            String *pathString = pckReadStrP(result);
+            this->interface.feature = pckReadU64P(result);
+
             // Get path in parent context
             MEM_CONTEXT_PRIOR_BEGIN()
             {
-                path = pckReadStrP(result);
+                path = pathNew(pathString);
             }
             MEM_CONTEXT_PRIOR_END();
-
-            this->interface.feature = pckReadU64P(result);
         }
         MEM_CONTEXT_TEMP_END();
     }
