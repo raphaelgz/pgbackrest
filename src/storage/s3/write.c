@@ -126,7 +126,7 @@ storageWriteS3PartAsync(StorageWriteS3 *const this)
                 xmlDocumentNewBuf(
                     httpResponseContent(
                         storageS3RequestP(
-                            this->storage, HTTP_VERB_POST_STR, this->interface.name,
+                            this->storage, HTTP_VERB_POST_STR, pathStr(this->interface.path),
                             .query = httpQueryAdd(httpQueryNewP(), S3_QUERY_UPLOADS_STR, EMPTY_STR), .sseKms = true,
                             .sseC = true, .tag = true))));
 
@@ -147,7 +147,7 @@ storageWriteS3PartAsync(StorageWriteS3 *const this)
         MEM_CONTEXT_OBJ_BEGIN(this)
         {
             this->request = storageS3RequestAsyncP(
-                this->storage, HTTP_VERB_PUT_STR, this->interface.name, .query = query, .content = this->partBuffer, .sseC = true);
+                this->storage, HTTP_VERB_PUT_STR, pathStr(this->interface.path), .query = query, .content = this->partBuffer, .sseC = true);
         }
         MEM_CONTEXT_OBJ_END();
     }
@@ -239,7 +239,7 @@ storageWriteS3Close(THIS_VOID)
 
                 // Finalize the multi-part upload
                 HttpRequest *const request = storageS3RequestAsyncP(
-                    this->storage, HTTP_VERB_POST_STR, this->interface.name,
+                    this->storage, HTTP_VERB_POST_STR, pathStr(this->interface.path),
                     .query = httpQueryAdd(httpQueryNewP(), S3_QUERY_UPLOAD_ID_STR, this->uploadId),
                     .content = xmlDocumentBuf(partList));
                 HttpResponse *const response = storageS3ResponseP(request);
@@ -255,7 +255,7 @@ storageWriteS3Close(THIS_VOID)
             else
             {
                 storageS3RequestP(
-                    this->storage, HTTP_VERB_PUT_STR, this->interface.name, .content = this->partBuffer, .sseKms = true,
+                    this->storage, HTTP_VERB_PUT_STR, pathStr(this->interface.path), .content = this->partBuffer, .sseKms = true,
                     .sseC = true, .tag = true);
             }
 
@@ -270,15 +270,15 @@ storageWriteS3Close(THIS_VOID)
 
 /**********************************************************************************************************************************/
 FN_EXTERN StorageWrite *
-storageWriteS3New(StorageS3 *const storage, const String *const name, const size_t partSize)
+storageWriteS3New(StorageS3 *const storage, const Path *const file, const size_t partSize)
 {
     FUNCTION_LOG_BEGIN(logLevelTrace);
         FUNCTION_LOG_PARAM(STORAGE_S3, storage);
-        FUNCTION_LOG_PARAM(STRING, name);
+        FUNCTION_LOG_PARAM(PATH, file);
     FUNCTION_LOG_END();
 
     ASSERT(storage != NULL);
-    ASSERT(name != NULL);
+    ASSERT(file != NULL);
 
     OBJ_NEW_BEGIN(StorageWriteS3, .childQty = MEM_CONTEXT_QTY_MAX)
     {
@@ -290,7 +290,7 @@ storageWriteS3New(StorageS3 *const storage, const String *const name, const size
             .interface = (StorageWriteInterface)
             {
                 .type = STORAGE_S3_TYPE,
-                .name = strDup(name),
+                .path = pathDup(file),
                 .atomic = true,
                 .createPath = true,
                 .syncFile = true,
