@@ -19,8 +19,8 @@ typedef struct StorageWriteSftp
     StorageWriteInterface interface;                                // Interface
     StorageSftp *storage;                                           // Storage that created this object
 
-    const String *nameTmp;                                          // Temporary filename utilized for atomic ops
-    const String *path;                                             // Utilized for path operations
+    const Path *fileTmp;                                            // Temporary filename utilized for atomic ops
+    const Path *parentDir;                                          // Utilized for path operations
     LIBSSH2_SESSION *session;                                       // LibSsh2 session
     LIBSSH2_SFTP *sftpSession;                                      // LibSsh2 session sftp session
     LIBSSH2_SFTP_HANDLE *sftpHandle;                                // LibSsh2 session sftp handle
@@ -55,7 +55,7 @@ storageWriteSftpOpen(THIS_VOID)
     do
     {
         this->sftpHandle = libssh2_sftp_open_ex(
-            this->sftpSession, strZ(this->nameTmp), (unsigned int)strSize(this->nameTmp), flags, (int)this->interface.modeFile,
+            this->sftpSession, pathZ(this->fileTmp), (unsigned int)strSize(pathStr(this->fileTmp)), flags, (int)this->interface.modeFile,
             LIBSSH2_SFTP_OPENFILE);
     }
     while (this->sftpHandle == NULL && storageSftpWaitFd(this->storage, libssh2_session_last_errno(this->session)));
@@ -65,13 +65,13 @@ storageWriteSftpOpen(THIS_VOID)
         libssh2_sftp_last_error(this->sftpSession) == LIBSSH2_FX_NO_SUCH_FILE)
     {
         // Create the path
-        storageInterfacePathCreateP(this->storage, this->path, false, false, this->interface.modePath);
+        storageInterfacePathCreateP(this->storage, this->parentDir, false, false, this->interface.modePath);
 
         // Open file again
         do
         {
             this->sftpHandle = libssh2_sftp_open_ex(
-                this->sftpSession, strZ(this->nameTmp), (unsigned int)strSize(this->nameTmp), flags, (int)this->interface.modeFile,
+                this->sftpSession, pathZ(this->fileTmp), (unsigned int)strSize(pathStr(this->fileTmp)), flags, (int)this->interface.modeFile,
                 LIBSSH2_SFTP_OPENFILE);
         }
         while (this->sftpHandle == NULL && storageSftpWaitFd(this->storage, libssh2_session_last_errno(this->session)));
@@ -83,7 +83,7 @@ storageWriteSftpOpen(THIS_VOID)
         const int rc = libssh2_session_last_errno(this->session);
 
         if (rc == LIBSSH2_ERROR_EAGAIN)
-            THROW_FMT(FileOpenError, "timeout while opening file '%s'", strZ(this->interface.name));
+            THROW_FMT(FileOpenError, "timeout while opening file '%s'", pathZ(this->interface.path));
 
         if (rc == LIBSSH2_ERROR_SFTP_PROTOCOL)
         {
@@ -94,14 +94,14 @@ storageWriteSftpOpen(THIS_VOID)
             else
             {
                 storageSftpEvalLibSsh2Error(
-                    rc, sftpErr, &FileOpenError, strNewFmt(STORAGE_ERROR_WRITE_OPEN, strZ(this->interface.name)), NULL);
+                    rc, sftpErr, &FileOpenError, strNewFmt(STORAGE_ERROR_WRITE_OPEN, pathZ(this->interface.path)), NULL);
             }
         }
         else
         {
             storageSftpEvalLibSsh2Error(
                 rc, libssh2_sftp_last_error(this->sftpSession), &FileOpenError,
-                strNewFmt(STORAGE_ERROR_WRITE_OPEN, strZ(this->interface.name)), NULL);
+                strNewFmt(STORAGE_ERROR_WRITE_OPEN, pathZ(this->interface.path)), NULL);
         }
     }
 
@@ -151,13 +151,13 @@ storageWriteSftp(THIS_VOID, const Buffer *const buffer)
     while (remains);
 
     if (rc == LIBSSH2_ERROR_EAGAIN)
-        THROW_FMT(FileWriteError, "timeout writing '%s'", strZ(this->nameTmp));
+        THROW_FMT(FileWriteError, "timeout writing '%s'", pathZ(this->fileTmp));
 
     if (rc < 0)
     {
         storageSftpEvalLibSsh2Error(
             (int)rc, libssh2_sftp_last_error(this->sftpSession), &FileWriteError,
-            strNewFmt("unable to write '%s'", strZ(this->nameTmp)), NULL);
+            strNewFmt("unable to write '%s'", pathZ(this->fileTmp)), NULL);
     }
 
     FUNCTION_LOG_RETURN_VOID();
@@ -181,19 +181,19 @@ storageWriteSftpUnlinkExisting(THIS_VOID)
 
     do
     {
-        rc = libssh2_sftp_unlink_ex(this->sftpSession, strZ(this->interface.name), (unsigned int)strSize(this->interface.name));
+        rc = libssh2_sftp_unlink_ex(this->sftpSession, pathZ(this->interface.path), (unsigned int)strSize(pathStr(this->interface.path)));
     }
     while (storageSftpWaitFd(this->storage, rc));
 
     if (rc != 0)
     {
         if (rc == LIBSSH2_ERROR_EAGAIN)
-            THROW_FMT(FileWriteError, "timeout unlinking '%s'", strZ(this->interface.name));
+            THROW_FMT(FileWriteError, "timeout unlinking '%s'", pathZ(this->interface.path));
 
         else
             storageSftpEvalLibSsh2Error(
                 rc, libssh2_sftp_last_error(this->sftpSession), &FileRemoveError,
-                strNewFmt("unable to remove existing '%s'", strZ(this->interface.name)), NULL);
+                strNewFmt("unable to remove existing '%s'", pathZ(this->interface.path)), NULL);
     }
 
     FUNCTION_LOG_RETURN_VOID();
@@ -218,8 +218,8 @@ storageWriteSftpRename(THIS_VOID)
     do
     {
         rc = libssh2_sftp_rename_ex(
-            this->sftpSession, strZ(this->nameTmp), (unsigned int)strSize(this->nameTmp), strZ(this->interface.name),
-            (unsigned int)strSize(this->interface.name),
+            this->sftpSession, pathZ(this->fileTmp), (unsigned int)strSize(pathStr(this->fileTmp)), pathZ(this->interface.path),
+            (unsigned int)strSize(pathStr(this->interface.path)),
             LIBSSH2_SFTP_RENAME_OVERWRITE | LIBSSH2_SFTP_RENAME_ATOMIC | LIBSSH2_SFTP_RENAME_NATIVE);
     }
     while (storageSftpWaitFd(this->storage, rc));
@@ -227,11 +227,11 @@ storageWriteSftpRename(THIS_VOID)
     if (rc != 0)
     {
         if (rc == LIBSSH2_ERROR_EAGAIN)
-            THROW_FMT(FileWriteError, "timeout moving '%s' to '%s'", strZ(this->nameTmp), strZ(this->interface.name));
+            THROW_FMT(FileWriteError, "timeout moving '%s' to '%s'", pathZ(this->fileTmp), pathZ(this->interface.path));
         else
             storageSftpEvalLibSsh2Error(
                 rc, libssh2_sftp_last_error(this->sftpSession), &FileRemoveError,
-                strNewFmt("unable to move '%s' to '%s'", strZ(this->nameTmp), strZ(this->interface.name)), NULL);
+                strNewFmt("unable to move '%s' to '%s'", pathZ(this->fileTmp), pathZ(this->interface.path)), NULL);
     }
 
     FUNCTION_LOG_RETURN_VOID();
@@ -267,12 +267,12 @@ storageWriteSftpClose(THIS_VOID)
             if (rc != 0)
             {
                 if (rc == LIBSSH2_ERROR_EAGAIN)
-                    THROW_FMT(FileSyncError, "timeout syncing file '%s'", strZ(this->nameTmp));
+                    THROW_FMT(FileSyncError, "timeout syncing file '%s'", pathZ(this->fileTmp));
                 else
                 {
                     storageSftpEvalLibSsh2Error(
                         rc, libssh2_sftp_last_error(this->sftpSession), &FileSyncError,
-                        strNewFmt(STORAGE_ERROR_WRITE_SYNC, strZ(this->nameTmp)), NULL);
+                        strNewFmt(STORAGE_ERROR_WRITE_SYNC, pathZ(this->fileTmp)), NULL);
                 }
             }
         }
@@ -287,11 +287,11 @@ storageWriteSftpClose(THIS_VOID)
         if (rc != 0)
         {
             if (rc == LIBSSH2_ERROR_EAGAIN)
-                THROW_FMT(FileCloseError, "timeout closing file '%s'", strZ(this->nameTmp));
+                THROW_FMT(FileCloseError, "timeout closing file '%s'", pathZ(this->fileTmp));
 
             storageSftpEvalLibSsh2Error(
                 rc, libssh2_sftp_last_error(this->sftpSession), &FileCloseError,
-                strNewFmt(STORAGE_ERROR_WRITE_CLOSE, strZ(this->nameTmp)), NULL);
+                strNewFmt(STORAGE_ERROR_WRITE_CLOSE, pathZ(this->fileTmp)), NULL);
         }
 
         this->sftpHandle = NULL;
@@ -302,8 +302,8 @@ storageWriteSftpClose(THIS_VOID)
             do
             {
                 rc = libssh2_sftp_rename_ex(
-                    this->sftpSession, strZ(this->nameTmp), (unsigned int)strSize(this->nameTmp), strZ(this->interface.name),
-                    (unsigned int)strSize(this->interface.name),
+                    this->sftpSession, pathZ(this->fileTmp), (unsigned int)strSize(pathStr(this->fileTmp)), pathZ(this->interface.path),
+                    (unsigned int)strSize(pathStr(this->interface.path)),
                     LIBSSH2_SFTP_RENAME_OVERWRITE | LIBSSH2_SFTP_RENAME_ATOMIC | LIBSSH2_SFTP_RENAME_NATIVE);
             }
             while (storageSftpWaitFd(this->storage, rc));
@@ -311,7 +311,7 @@ storageWriteSftpClose(THIS_VOID)
             if (rc != 0)
             {
                 if (rc == LIBSSH2_ERROR_EAGAIN)
-                    THROW_FMT(FileCloseError, "timeout renaming file '%s'", strZ(this->nameTmp));
+                    THROW_FMT(FileCloseError, "timeout renaming file '%s'", pathZ(this->fileTmp));
 
                 // Some/most sftp servers will not rename over an existing file, in testing this returned LIBSSH2_FX_FAILURE
                 if (rc == LIBSSH2_ERROR_SFTP_PROTOCOL && libssh2_sftp_last_error(this->sftpSession) == LIBSSH2_FX_FAILURE)
@@ -324,7 +324,7 @@ storageWriteSftpClose(THIS_VOID)
                 {
                     storageSftpEvalLibSsh2Error(
                         rc, libssh2_sftp_last_error(this->sftpSession), &FileCloseError,
-                        strNewFmt("unable to move '%s' to '%s'", strZ(this->nameTmp), strZ(this->interface.name)), NULL);
+                        strNewFmt("unable to move '%s' to '%s'", pathZ(this->fileTmp), pathZ(this->interface.path)), NULL);
                 }
             }
         }
@@ -336,14 +336,14 @@ storageWriteSftpClose(THIS_VOID)
 /**********************************************************************************************************************************/
 FN_EXTERN StorageWrite *
 storageWriteSftpNew(
-    StorageSftp *const storage, const String *const name, LIBSSH2_SESSION *const session, LIBSSH2_SFTP *const sftpSession,
+    StorageSftp *const storage, const Path *const file, LIBSSH2_SESSION *const session, LIBSSH2_SFTP *const sftpSession,
     LIBSSH2_SFTP_HANDLE *const sftpHandle, const mode_t modeFile, const mode_t modePath, const String *const user,
     const String *const group, const time_t timeModified, const bool createPath, const bool syncFile, const bool syncPath,
     const bool atomic, const bool truncate)
 {
     FUNCTION_LOG_BEGIN(logLevelTrace);
         FUNCTION_LOG_PARAM(STORAGE_SFTP, storage);
-        FUNCTION_LOG_PARAM(STRING, name);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM_P(VOID, session);
         FUNCTION_LOG_PARAM_P(VOID, sftpSession);
         FUNCTION_LOG_PARAM_P(VOID, sftpHandle);
@@ -360,7 +360,7 @@ storageWriteSftpNew(
     FUNCTION_LOG_END();
 
     ASSERT(storage != NULL);
-    ASSERT(name != NULL);
+    ASSERT(file != NULL);
     ASSERT(modeFile != 0);
     ASSERT(modePath != 0);
 
@@ -369,7 +369,7 @@ storageWriteSftpNew(
         *this = (StorageWriteSftp)
         {
             .storage = storage,
-            .path = strPath(name),
+            .parentDir = pathGetParent(file),
             .session = session,
             .sftpSession = sftpSession,
             .sftpHandle = sftpHandle,
@@ -377,7 +377,7 @@ storageWriteSftpNew(
             .interface = (StorageWriteInterface)
             {
                 .type = STORAGE_SFTP_TYPE,
-                .name = strDup(name),
+                .path = pathDup(file),
                 .atomic = atomic,
                 .createPath = createPath,
                 .group = strDup(group),
@@ -399,7 +399,14 @@ storageWriteSftpNew(
         };
 
         // Create temp file name
-        this->nameTmp = atomic ? strNewFmt("%s." STORAGE_FILE_TEMP_EXT, strZ(name)) : this->interface.name;
+        if (atomic)
+        {
+            const String *const name = pathGetName(this->interface.path);
+
+            this->fileTmp = pathSetNameFmt(pathDup(this->interface.path), "%s." STORAGE_FILE_TEMP_EXT, strZ(name));
+        }
+        else
+            this->fileTmp = this->interface.path;
     }
     OBJ_NEW_END();
 
