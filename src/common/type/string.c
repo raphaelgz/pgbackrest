@@ -150,14 +150,7 @@ strNewZ(const char *const string)
 
     ASSERT(string != NULL);
 
-    // Create object
-    String *const this = strNewFixed(strlen(string));
-
-    // Assign string
-    memcpy(this->pub.buffer, string, strSize(this));
-    this->pub.buffer[strSize(this)] = '\0';
-
-    FUNCTION_TEST_RETURN(STRING, this);
+    FUNCTION_TEST_RETURN(STRING, strNewZN(string, strlen(string)));
 }
 
 /**********************************************************************************************************************************/
@@ -606,7 +599,7 @@ strDup(const String *const this)
     String *result = NULL;
 
     if (this != NULL)
-        result = strNewZ(strZ(this));
+        result = strNewZN(strZ(this), strSize(this));
 
     FUNCTION_TEST_RETURN(STRING, result);
 }
