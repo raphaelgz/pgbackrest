@@ -116,8 +116,12 @@ bldErrParseErrorList(Yaml *const yaml)
 BldErr
 bldErrParse(const Storage *const storageRepo)
 {
+    Path *const yamlPath = pathNewZ("src/build/error/error.yaml");
+
     // Initialize yaml
-    Yaml *const yaml = yamlNew(storageGetP(storageNewReadP(storageRepo, STRDEF("src/build/error/error.yaml"))));
+    Yaml *const yaml = yamlNew(storageGetP(storageNewReadP(storageRepo, yamlPath)));
+
+    pathFree(yamlPath);
 
     // Parse error
     const List *const errList = bldErrParseErrorList(yaml);

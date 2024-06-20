@@ -1165,9 +1165,13 @@ bldCfgParseOptionResolveList(const List *const optList)
 BldCfg
 bldCfgParse(const Storage *const storageRepo)
 {
+    Path *const yamlFile = pathNewZ("src/build/config/config.yaml");
+
     // Initialize yaml
-    Yaml *const yaml = yamlNew(storageGetP(storageNewReadP(storageRepo, STRDEF("src/build/config/config.yaml"))));
+    Yaml *const yaml = yamlNew(storageGetP(storageNewReadP(storageRepo, yamlFile)));
     yamlEventNextCheck(yaml, yamlEventTypeMapBegin);
+
+    pathFree(yamlFile);
 
     // Parse configuration
     const List *const cmdList = bldCfgParseCommandList(yaml);

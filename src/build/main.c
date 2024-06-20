@@ -17,6 +17,14 @@ Code Builder
 #include "build/postgres/parse.h"
 #include "build/postgres/render.h"
 
+static Path *getCurrentWorkDir(void)
+{
+    char currentWorkDir[1024];
+    THROW_ON_SYS_ERROR(getcwd(currentWorkDir, sizeof(currentWorkDir)) == NULL, FormatError, "unable to get cwd");
+
+    return pathNewZ(currentWorkDir);
+}
+
 int
 main(const int argListSize, const char *const argList[])
 {
@@ -40,39 +48,42 @@ main(const int argListSize, const char *const argList[])
         logInit(logLevelWarn, logLevelError, logLevelOff, false, 0, 1, false);
 
         // Get current working directory
-        char currentWorkDir[1024];
-        THROW_ON_SYS_ERROR(getcwd(currentWorkDir, sizeof(currentWorkDir)) == NULL, FormatError, "unable to get cwd");
+        const Path *currentWorkDir = getCurrentWorkDir();
+        const Path *repoPath;
+        const Path *buildPath;
 
         // Get repo path (cwd if it was not passed)
-        const String *pathRepo = strPath(STR(currentWorkDir));
-        String *pathBuild = strCat(strNew(), pathRepo);
-
         if (argListSize >= 3)
         {
-            const String *const pathArg = STR(argList[2]);
+            Path *const pathArg = pathNewZ(argList[2]);
 
-            if (strBeginsWith(pathArg, FSLASH_STR))
-                pathRepo = strPath(pathArg);
+            if (pathIsAbsolute(pathArg))
+            {
+                repoPath = pathGetParent(pathArg);
+                pathFree(pathArg);
+            }
             else
-                pathRepo = strPathAbsolute(pathArg, STR(currentWorkDir));
-
-            pathBuild = strDup(pathRepo);
+                repoPath = pathMakeAbsolute(pathArg, currentWorkDir);
         }
+        else
+            repoPath = pathGetParent(currentWorkDir);
 
         // If the build path was specified
         if (argListSize >= 4)
         {
-            const String *const pathArg = STR(argList[3]);
+            Path *const pathArg = pathNewZ(argList[3]);
 
-            if (strBeginsWith(pathArg, FSLASH_STR))
-                pathBuild = strDup(pathArg);
+            if (pathIsAbsolute(pathArg))
+                buildPath = pathArg;
             else
-                pathBuild = strPathAbsolute(pathArg, STR(currentWorkDir));
+                buildPath = pathMakeAbsolute(pathArg, currentWorkDir);
         }
+        else
+            buildPath = pathDup(repoPath);
 
         // Repo and build storage
-        const Storage *const storageRepo = storagePosixNewP(pathRepo);
-        const Storage *const storageBuild = storagePosixNewP(pathBuild, .write = true);
+        const Storage *const storageRepo = storagePosixNewP(repoPath);
+        const Storage *const storageBuild = storagePosixNewP(buildPath, .write = true);
 
         // Config
         if (strEqZ(STRDEF("config"), argList[1]))

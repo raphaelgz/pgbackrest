@@ -174,9 +174,13 @@ bldPgParseType(const String *const header)
 BldPg
 bldPgParse(const Storage *const storageRepo)
 {
+    Path *const vendorHeaderPath = pathNewZ("src/postgres/interface/version.vendor.h");
+    Path *const functionListPath = pathNewZ("src/postgres/interface/version.intern.h");
+    Path *const yamlPath = pathNewZ("src/build/postgres/postgres.yaml");
+
     // Parse types from version.vendor.h
     const String *const vendorHeader = strNewBuf(
-        storageGetP(storageNewReadP(storageRepo, STRDEF("src/postgres/interface/version.vendor.h"))));
+        storageGetP(storageNewReadP(storageRepo, vendorHeaderPath)));
     StringList *const typeList = bldPgParseType(vendorHeader);
     strLstSort(typeList, sortOrderAsc);
 
@@ -188,11 +192,15 @@ bldPgParse(const Storage *const storageRepo)
 
     // Parse defines from version.intern.h
     const StringList *const functionList = bldPgParseDefine(
-        strNewBuf(storageGetP(storageNewReadP(storageRepo, STRDEF("src/postgres/interface/version.intern.h")))));
+        strNewBuf(storageGetP(storageNewReadP(storageRepo, functionListPath))));
 
     // Initialize yaml
-    Yaml *const yaml = yamlNew(storageGetP(storageNewReadP(storageRepo, STRDEF("src/build/postgres/postgres.yaml"))));
+    Yaml *const yaml = yamlNew(storageGetP(storageNewReadP(storageRepo, yamlPath)));
     yamlEventNextCheck(yaml, yamlEventTypeMapBegin);
+
+    pathFree(yamlPath);
+    pathFree(functionListPath);
+    pathFree(vendorHeaderPath);
 
     // Parse postgres
     return (BldPg){.pgList = bldPgVersionList(yaml), .typeList = typeList, .defineList = defineList, .functionList = functionList};

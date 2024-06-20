@@ -57,10 +57,13 @@ bldHeader(const char *const module, const char *const description)
 FN_INLINE_ALWAYS void
 bldPut(const Storage *const storage, const char *const file, const Buffer *const contentNew)
 {
-    const Buffer *const contentOld = storageGetP(storageNewReadP(storage, STR(file), .ignoreMissing = true));
+    Path *const filePath = pathNewZ(file);
+    const Buffer *const contentOld = storageGetP(storageNewReadP(storage, filePath, .ignoreMissing = true));
 
     if (contentOld == NULL || !bufEq(contentOld, contentNew))
-        storagePutP(storageNewWriteP(storage, STR(file), .noSyncPath = true), contentNew);
+        storagePutP(storageNewWriteP(storage, filePath, .noSyncPath = true), contentNew);
+
+    pathFree(filePath);
 }
 
 /***********************************************************************************************************************************

@@ -217,9 +217,13 @@ bldHlpValidate(const BldHlp bldHlp, const BldCfg bldCfg)
 BldHlp
 bldHlpParse(const Storage *const storageRepo, const BldCfg bldCfg, const bool detail)
 {
+    Path *const xmlPath = pathNewZ("src/build/help/help.xml");
+
     // Initialize xml
     XmlNode *const xml = xmlDocumentRoot(
-        xmlDocumentNewBuf(storageGetP(storageNewReadP(storageRepo, STRDEF("src/build/help/help.xml")))));
+        xmlDocumentNewBuf(storageGetP(storageNewReadP(storageRepo, xmlPath))));
+
+    pathFree(xmlPath);
 
     // Parse help
     BldHlp result =
