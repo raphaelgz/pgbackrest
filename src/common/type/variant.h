@@ -191,6 +191,10 @@ By convention all variant constant identifiers are appended with _VAR.
 #define VARINT64(dataParam)                                                                                                        \
     ((const Variant *)&(const VariantInt64Pub){.type = varTypeInt64, .data = dataParam})
 
+// Create a Path Variant constant inline from a Path
+#define VARPATH(dataParam)                                                                                                         \
+    ((const Variant *)&(const VariantPathPub){.type = varTypePath, .data = (Path *)dataParam})
+
 // Create a String Variant constant inline from any zero-terminated string
 #define VARSTRZ(dataParam)                                                                                                         \
     ((const Variant *)&(const VariantStringPub){.type = varTypeString, .data = (String *)STR(dataParam)})
