@@ -28,7 +28,7 @@ typedef enum
     cfgOptTypeHash,                                                 // Associative array, e.g. key1=val1,key2=val2
     cfgOptTypeInteger,                                              // Signed 64-bit integer
     cfgOptTypeList,                                                 // String list, e.g. val1,val2
-    cfgOptTypePath,                                                 // Path string with validation
+    cfgOptTypePath,                                                 // Path
     cfgOptTypeSize,                                                 // Size, e.g. 1m, 2gb
     cfgOptTypeString,                                               // String
     cfgOptTypeStringId,                                             // StringId
@@ -44,6 +44,7 @@ typedef enum
     cfgOptDataTypeHash,                                             // Hash
     cfgOptDataTypeInteger,                                          // Signed 64-bit integer
     cfgOptDataTypeList,                                             // List
+    cfgOptDataTypePath,                                             // Path
     cfgOptDataTypeString,                                           // String
     cfgOptDataTypeStringId,                                         // StringId
 } ConfigOptionDataType;

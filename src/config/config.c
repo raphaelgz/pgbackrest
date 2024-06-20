@@ -483,6 +483,10 @@ cfgOptionDisplayVar(const Variant *const value, const ConfigOptionType optionTyp
     {
         FUNCTION_TEST_RETURN_CONST(STRING, strNewDbl((double)varInt64(value) / MSEC_PER_SEC));
     }
+    else if (optionType == cfgOptTypePath)
+    {
+        FUNCTION_TEST_RETURN_CONST(STRING, pathStr(varPath(value)));
+    }
     else if (optionType == cfgOptTypeStringId)
     {
         FUNCTION_TEST_RETURN_CONST(STRING, strIdToStr(varUInt64(value)));
@@ -706,6 +710,9 @@ cfgOptionIdxVar(const ConfigOption optionId, const unsigned int optionIdx)
             case cfgOptDataTypeList:
                 FUNCTION_TEST_RETURN(VARIANT, varNewVarLst(optionValueType->list));
 
+            case cfgOptDataTypePath:
+                FUNCTION_TEST_RETURN(VARIANT, varNewPath(optionValueType->path));
+
             case cfgOptDataTypeStringId:
                 FUNCTION_TEST_RETURN(VARIANT, varNewUInt64(optionValueType->stringId));
 
@@ -830,6 +837,28 @@ cfgOptionIdxLst(const ConfigOption optionId, const unsigned int optionIdx)
     FUNCTION_LOG_RETURN_CONST(VARIANT_LIST, optionValue);
 }
 
+FN_EXTERN const Path *
+cfgOptionIdxPath(ConfigOption optionId, unsigned int optionIdx)
+{
+    FUNCTION_LOG_BEGIN(logLevelTrace);
+        FUNCTION_LOG_PARAM(ENUM, optionId);
+        FUNCTION_LOG_PARAM(UINT, optionIdx);
+    FUNCTION_LOG_END();
+
+    FUNCTION_LOG_RETURN_CONST(PATH, cfgOptionIdxInternal(optionId, optionIdx, cfgOptDataTypePath, false)->value.path);
+}
+
+FN_EXTERN const Path *
+cfgOptionIdxPathNull(ConfigOption optionId, unsigned int optionIdx)
+{
+    FUNCTION_LOG_BEGIN(logLevelTrace);
+        FUNCTION_LOG_PARAM(ENUM, optionId);
+        FUNCTION_LOG_PARAM(UINT, optionIdx);
+    FUNCTION_LOG_END();
+
+    FUNCTION_LOG_RETURN_CONST(PATH, cfgOptionIdxInternal(optionId, optionIdx, cfgOptDataTypeString, true)->value.path);
+}
+
 FN_EXTERN const String *
 cfgOptionIdxStr(const ConfigOption optionId, const unsigned int optionIdx)
 {
@@ -914,6 +943,23 @@ cfgOptionIdxSet(
             case cfgOptDataTypeInteger:
                 optionValueType->integer = varInt64(value);
                 break;
+
+            case cfgOptDataTypePath:
+            {
+                if (varType(value) == varTypePath)
+                {
+                    MEM_CONTEXT_BEGIN(configLocal->memContext)
+                    {
+                        optionValueType->path = pathDup(varPath(value));
+                    }
+                    MEM_CONTEXT_END();
+                }
+                else
+                {
+                    THROW_FMT(
+                        AssertError, "option '%s' must be set with Path variant", cfgOptionIdxName(optionId, optionIdx));
+                }
+            }
 
             case cfgOptDataTypeString:
             {

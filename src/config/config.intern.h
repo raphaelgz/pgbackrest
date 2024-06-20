@@ -37,6 +37,7 @@ typedef union ConfigOptionValueType
     const VariantList *list;                                        // VariantList
     const String *string;                                           // String
     StringId stringId;                                              // StringId
+    const Path *path;                                               // Path
 } ConfigOptionValueType;
 
 typedef struct ConfigOptionValue

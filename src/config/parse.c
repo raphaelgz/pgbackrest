@@ -794,11 +794,14 @@ cfgParseOptionDataType(const ConfigOption optionId)
         case cfgOptTypeStringId:
             FUNCTION_TEST_RETURN(ENUM, cfgOptDataTypeStringId);
 
+        case cfgOptTypePath:
+            FUNCTION_TEST_RETURN(ENUM, cfgOptDataTypePath);
+
         default:
             break;
     }
 
-    ASSERT(parseRuleOption[optionId].type == cfgOptTypePath || parseRuleOption[optionId].type == cfgOptTypeString);
+    ASSERT(parseRuleOption[optionId].type == cfgOptTypeString);
 
     FUNCTION_TEST_RETURN(ENUM, cfgOptDataTypeString);
 }
@@ -1014,6 +1017,13 @@ cfgParseOptionalRule(
                                     }
 
                                     case cfgOptTypePath:
+                                    {
+                                        optionalRules->defaultRaw = (const String *)&parseRuleValueStr[pckReadU32P(ruleData)];
+                                        optionalRules->defaultValue.path = pathNew(optionalRules->defaultRaw);
+
+                                        break;
+                                    }
+
                                     case cfgOptTypeString:
                                     {
                                         optionalRules->defaultRaw = (const String *)&parseRuleValueStr[pckReadU32P(ruleData)];
@@ -2458,10 +2468,33 @@ cfgParse(const Storage *const storage, const unsigned int argListSize, const cha
                                 {
                                     configOptionValue->value.stringId = strIdFromZN(strZ(valueAllow), strSize(valueAllow), false);
                                 }
+                                // If path make sure it is valid
+                                else if (optionType == cfgOptTypePath)
+                                {
+                                    TRY_BEGIN()
+                                    {
+                                        configOptionValue->value.path = pathNew(value);
+                                    }
+                                    CATCH_ANY()
+                                    {
+                                        THROW_FMT(
+                                            OptionInvalidValueError, "'%s' is not a valid path for '%s' option", strZ(value),
+                                            cfgParseOptionKeyIdxName(optionId, optionKeyIdx));
+                                    }
+                                    TRY_END();
+
+                                    if (!pathIsAbsolute(configOptionValue->value.path) ||
+                                        pathGetRootType(configOptionValue->value.path) != pathRootSlash)
+                                    {
+                                        THROW_FMT(
+                                            OptionInvalidValueError, "'%s' must begin with / for '%s' option", strZ(value),
+                                            cfgParseOptionKeyIdxName(optionId, optionKeyIdx));
+                                    }
+                                }
                                 // Else if string make sure it is valid
                                 else
                                 {
-                                    ASSERT(optionType == cfgOptTypePath || optionType == cfgOptTypeString);
+                                    ASSERT(optionType == cfgOptTypeString);
 
                                     // Set string value to display value
                                     configOptionValue->value.string = configOptionValue->display;
@@ -2472,39 +2505,6 @@ cfgParse(const Storage *const storage, const unsigned int argListSize, const cha
                                         THROW_FMT(
                                             OptionInvalidValueError, "'%s' must be >= 1 character for '%s' option", strZ(value),
                                             cfgParseOptionKeyIdxName(optionId, optionKeyIdx));
-                                    }
-
-                                    // If path make sure it is valid
-                                    if (optionType == cfgOptTypePath)
-                                    {
-                                        // Make sure it starts with /
-                                        if (!strBeginsWithZ(value, "/"))
-                                        {
-                                            THROW_FMT(
-                                                OptionInvalidValueError, "'%s' must begin with / for '%s' option", strZ(value),
-                                                cfgParseOptionKeyIdxName(optionId, optionKeyIdx));
-                                        }
-
-                                        // Make sure there are no occurrences of //
-                                        if (strstr(strZ(value), "//") != NULL)
-                                        {
-                                            THROW_FMT(
-                                                OptionInvalidValueError, "'%s' cannot contain // for '%s' option", strZ(value),
-                                                cfgParseOptionKeyIdxName(optionId, optionKeyIdx));
-                                        }
-
-                                        // If the path ends with a / we'll strip it off (unless the value is just /)
-                                        if (strEndsWithZ(value, "/") && strSize(value) != 1)
-                                        {
-                                            strTruncIdx(value, (int)strSize(value) - 1);
-
-                                            // Reset string value since it was modified
-                                            MEM_CONTEXT_BEGIN(config->memContext)
-                                            {
-                                                configOptionValue->value.string = strDup(value);
-                                            }
-                                            MEM_CONTEXT_END();
-                                        }
                                     }
                                 }
 

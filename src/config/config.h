@@ -166,6 +166,23 @@ cfgOptionLst(const ConfigOption optionId)
     return cfgOptionIdxLst(optionId, cfgOptionIdxDefault(optionId));
 }
 
+// Get Path config option
+FN_EXTERN const Path *cfgOptionIdxPath(ConfigOption optionId, unsigned int optionIdx);
+
+FN_INLINE_ALWAYS const Path *
+cfgOptionPath(const ConfigOption optionId)
+{
+    return cfgOptionIdxPath(optionId, cfgOptionIdxDefault(optionId));
+}
+
+FN_EXTERN const Path *cfgOptionIdxPathNull(ConfigOption optionId, unsigned int optionIdx);
+
+FN_INLINE_ALWAYS const Path *
+cfgOptionPathNull(const ConfigOption optionId)
+{
+    return cfgOptionIdxPathNull(optionId, cfgOptionIdxDefault(optionId));
+}
+
 // Get String config option
 FN_EXTERN const String *cfgOptionIdxStr(ConfigOption optionId, unsigned int optionIdx);
 
