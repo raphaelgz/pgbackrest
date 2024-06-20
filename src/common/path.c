@@ -102,7 +102,7 @@ pathInternalNew(void)
 {
     FUNCTION_TEST_VOID();
 
-    OBJ_NEW_BEGIN(Path)
+    OBJ_NEW_BEGIN(Path, .childQty = MEM_CONTEXT_QTY_MAX)
     {
         *this = (Path)
         {
@@ -176,14 +176,11 @@ pathSetRootComponentZN(Path *const this, const PathRootType rootType, const char
     FUNCTION_TEST_END();
 
     ASSERT(this != NULL);
-    ASSERT(root != NULL || length == 0);
+    ASSERT(root != NULL);
+    ASSERT((rootType == pathRootNone && length == 0) || (rootType != pathRootNone && length > 0));
 
-    String *const component = strLstGet(this->components, 0);
-
-    if (rootType == pathRootNone)
-        strTrunc(component);
-    else
-        strCatZN(strTrunc(component), root, length);
+    strLstRemoveIdx(this->components, 0);
+    strLstInsert(this->components, 0, STR_SIZE(root, length));
 
     this->rootType = rootType;
 
@@ -227,21 +224,6 @@ pathAppendNonRootComponentZN(Path *const this, const char *const component, cons
 
 /**********************************************************************************************************************************/
 static Path *
-pathAppendNonRootComponentZ(Path *const this, const char *const component)
-{
-    FUNCTION_TEST_BEGIN();
-    FUNCTION_TEST_PARAM(PATH, this);
-    FUNCTION_TEST_PARAM(STRINGZ, component);
-    FUNCTION_TEST_END();
-
-    ASSERT(this != NULL);
-    ASSERT(component != NULL);
-
-    FUNCTION_TEST_RETURN(PATH, pathAppendNonRootComponentZN(this, component, strlen(component)));
-}
-
-/**********************************************************************************************************************************/
-static Path *
 pathAppendNonRootComponentStr(Path *const this, const String *const component)
 {
     FUNCTION_TEST_BEGIN();
@@ -276,21 +258,6 @@ pathPrependNonRootComponentZN(Path *const this, const char *const component, con
 
 /**********************************************************************************************************************************/
 static Path *
-pathPrependNonRootComponentZ(Path *const this, const char *const component)
-{
-    FUNCTION_TEST_BEGIN();
-        FUNCTION_TEST_PARAM(PATH, this);
-        FUNCTION_TEST_PARAM(STRINGZ, component);
-    FUNCTION_TEST_END();
-
-    ASSERT(this != NULL);
-    ASSERT(component != NULL);
-
-    FUNCTION_TEST_RETURN(PATH, pathPrependNonRootComponentZN(this, component, strlen(component)));
-}
-
-/**********************************************************************************************************************************/
-static Path *
 pathPrependNonRootComponentStr(Path *const this, const String *const component)
 {
     FUNCTION_TEST_BEGIN();
@@ -317,7 +284,7 @@ pathRemoveComponent(Path *const this, const unsigned int index)
     ASSERT(index < strLstSize(this->components));
 
     if (index == 0)
-        pathSetRootComponentZN(this, pathRootNone, NULL, 0);
+        pathSetRootComponentZN(this, pathRootNone, "", 0);
     else
         strLstRemoveIdx(this->components, index);
 
@@ -1145,7 +1112,7 @@ pathMakeRelativeTo(Path *const this, const Path *const basePath)
         }
 
         // Remove the root
-        pathSetRootComponentZN(this, pathRootNone, NULL, 0);
+        pathSetRootComponentZN(this, pathRootNone, "", 0);
 
         // Remove the common prefix
         while (thisComponentIdx > 1) {
