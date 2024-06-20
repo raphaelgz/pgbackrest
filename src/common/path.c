@@ -62,7 +62,7 @@ pathComponentIsAlwaysADirectory(const String *const component)
 }
 
 /**********************************************************************************************************************************/
-static char *
+static FN_PRINTF(3, 0) char *
 pathInternalFormatHelper(char *const buffer, size_t *const size, const char *const format, va_list argumentList)
 {
     FUNCTION_TEST_BEGIN();
