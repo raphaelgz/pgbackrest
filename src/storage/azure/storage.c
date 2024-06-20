@@ -482,13 +482,13 @@ storageAzureListInternal(
 
 /**********************************************************************************************************************************/
 static StorageInfo
-storageAzureInfo(THIS_VOID, const String *const file, const StorageInfoLevel level, const StorageInterfaceInfoParam param)
+storageAzureInfo(THIS_VOID, const Path *const file, const StorageInfoLevel level, const StorageInterfaceInfoParam param)
 {
     THIS(StorageAzure);
 
     FUNCTION_LOG_BEGIN(logLevelTrace);
         FUNCTION_LOG_PARAM(STORAGE_AZURE, this);
-        FUNCTION_LOG_PARAM(STRING, file);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(ENUM, level);
         (void)param;                                                // No parameters are used
     FUNCTION_LOG_END();
@@ -497,7 +497,7 @@ storageAzureInfo(THIS_VOID, const String *const file, const StorageInfoLevel lev
     ASSERT(file != NULL);
 
     // Attempt to get file info
-    HttpResponse *const httpResponse = storageAzureRequestP(this, HTTP_VERB_HEAD_STR, .path = file, .allowMissing = true);
+    HttpResponse *const httpResponse = storageAzureRequestP(this, HTTP_VERB_HEAD_STR, .path = pathStr(file), .allowMissing = true);
 
     // Does the file exist?
     StorageInfo result = {.level = level, .exists = httpResponseCodeOk(httpResponse)};
@@ -532,13 +532,13 @@ storageAzureListCallback(void *const callbackData, const StorageInfo *const info
 }
 
 static StorageList *
-storageAzureList(THIS_VOID, const String *const path, const StorageInfoLevel level, const StorageInterfaceListParam param)
+storageAzureList(THIS_VOID, const Path *const path, const StorageInfoLevel level, const StorageInterfaceListParam param)
 {
     THIS(StorageAzure);
 
     FUNCTION_LOG_BEGIN(logLevelTrace);
         FUNCTION_LOG_PARAM(STORAGE_AZURE, this);
-        FUNCTION_LOG_PARAM(STRING, path);
+        FUNCTION_LOG_PARAM(PATH, path);
         FUNCTION_LOG_PARAM(ENUM, level);
         FUNCTION_LOG_PARAM(STRING, param.expression);
     FUNCTION_LOG_END();
@@ -548,20 +548,20 @@ storageAzureList(THIS_VOID, const String *const path, const StorageInfoLevel lev
 
     StorageList *const result = storageLstNew(level);
 
-    storageAzureListInternal(this, path, level, param.expression, false, storageAzureListCallback, result);
+    storageAzureListInternal(this, pathStr(path), level, param.expression, false, storageAzureListCallback, result);
 
     FUNCTION_LOG_RETURN(STORAGE_LIST, result);
 }
 
 /**********************************************************************************************************************************/
 static StorageRead *
-storageAzureNewRead(THIS_VOID, const String *const file, const bool ignoreMissing, const StorageInterfaceNewReadParam param)
+storageAzureNewRead(THIS_VOID, const Path *const file, const bool ignoreMissing, const StorageInterfaceNewReadParam param)
 {
     THIS(StorageAzure);
 
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE_AZURE, this);
-        FUNCTION_LOG_PARAM(STRING, file);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(BOOL, ignoreMissing);
         FUNCTION_LOG_PARAM(UINT64, param.offset);
         FUNCTION_LOG_PARAM(VARIANT, param.limit);
@@ -575,13 +575,13 @@ storageAzureNewRead(THIS_VOID, const String *const file, const bool ignoreMissin
 
 /**********************************************************************************************************************************/
 static StorageWrite *
-storageAzureNewWrite(THIS_VOID, const String *const file, const StorageInterfaceNewWriteParam param)
+storageAzureNewWrite(THIS_VOID, const Path *const file, const StorageInterfaceNewWriteParam param)
 {
     THIS(StorageAzure);
 
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE_AZURE, this);
-        FUNCTION_LOG_PARAM(STRING, file);
+        FUNCTION_LOG_PARAM(PATH, file);
         (void)param;                                                // No parameters are used
     FUNCTION_LOG_END();
 
@@ -641,13 +641,13 @@ storageAzurePathRemoveCallback(void *const callbackData, const StorageInfo *cons
 }
 
 static bool
-storageAzurePathRemove(THIS_VOID, const String *const path, const bool recurse, const StorageInterfacePathRemoveParam param)
+storageAzurePathRemove(THIS_VOID, const Path *const path, const bool recurse, const StorageInterfacePathRemoveParam param)
 {
     THIS(StorageAzure);
 
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE_AZURE, this);
-        FUNCTION_LOG_PARAM(STRING, path);
+        FUNCTION_LOG_PARAM(PATH, path);
         FUNCTION_LOG_PARAM(BOOL, recurse);
         (void)param;                                                // No parameters are used
     FUNCTION_LOG_END();
@@ -661,10 +661,10 @@ storageAzurePathRemove(THIS_VOID, const String *const path, const bool recurse, 
         {
             .this = this,
             .memContext = memContextCurrent(),
-            .path = strEq(path, FSLASH_STR) ? EMPTY_STR : path,
+            .path = pathIsRoot(path) ? EMPTY_STR : pathStr(path),
         };
 
-        storageAzureListInternal(this, path, storageInfoLevelType, NULL, true, storageAzurePathRemoveCallback, &data);
+        storageAzureListInternal(this, pathStr(path), storageInfoLevelType, NULL, true, storageAzurePathRemoveCallback, &data);
 
         // Check response on last async request
         if (data.request != NULL)
@@ -677,13 +677,13 @@ storageAzurePathRemove(THIS_VOID, const String *const path, const bool recurse, 
 
 /**********************************************************************************************************************************/
 static void
-storageAzureRemove(THIS_VOID, const String *const file, const StorageInterfaceRemoveParam param)
+storageAzureRemove(THIS_VOID, const Path *const file, const StorageInterfaceRemoveParam param)
 {
     THIS(StorageAzure);
 
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STORAGE_AZURE, this);
-        FUNCTION_LOG_PARAM(STRING, file);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(BOOL, param.errorOnMissing);
     FUNCTION_LOG_END();
 
@@ -691,7 +691,7 @@ storageAzureRemove(THIS_VOID, const String *const file, const StorageInterfaceRe
     ASSERT(file != NULL);
     ASSERT(!param.errorOnMissing);
 
-    httpResponseFree(storageAzureRequestP(this, HTTP_VERB_DELETE_STR, file, .allowMissing = true));
+    httpResponseFree(storageAzureRequestP(this, HTTP_VERB_DELETE_STR, pathStr(file), .allowMissing = true));
 
     FUNCTION_LOG_RETURN_VOID();
 }
@@ -709,13 +709,13 @@ static const StorageInterface storageInterfaceAzure =
 
 FN_EXTERN Storage *
 storageAzureNew(
-    const String *const path, const bool write, StoragePathExpressionCallback pathExpressionFunction, const String *const container,
+    const Path *const path, const bool write, StoragePathExpressionCallback pathExpressionFunction, const String *const container,
     const String *const account, const StorageAzureKeyType keyType, const String *const key, const size_t blockSize,
     const KeyValue *const tag, const String *const endpoint, const StorageAzureUriStyle uriStyle, const unsigned int port,
     const TimeMSec timeout, const bool verifyPeer, const String *const caFile, const String *const caPath)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
-        FUNCTION_LOG_PARAM(STRING, path);
+        FUNCTION_LOG_PARAM(PATH, path);
         FUNCTION_LOG_PARAM(BOOL, write);
         FUNCTION_LOG_PARAM(FUNCTIONP, pathExpressionFunction);
         FUNCTION_LOG_PARAM(STRING, container);

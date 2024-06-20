@@ -144,7 +144,7 @@ storageWriteAzureBlockAsync(StorageWriteAzure *const this)
         MEM_CONTEXT_OBJ_BEGIN(this)
         {
             this->request = storageAzureRequestAsyncP(
-                this->storage, HTTP_VERB_PUT_STR, .path = this->interface.name, .query = query, .content = this->blockBuffer);
+                this->storage, HTTP_VERB_PUT_STR, .path = pathStr(this->interface.path), .query = query, .content = this->blockBuffer);
         }
         MEM_CONTEXT_OBJ_END();
 
@@ -238,7 +238,7 @@ storageWriteAzureClose(THIS_VOID)
 
                 // Finalize the multi-block upload
                 storageAzureRequestP(
-                    this->storage, HTTP_VERB_PUT_STR, .path = this->interface.name,
+                    this->storage, HTTP_VERB_PUT_STR, .path = pathStr(this->interface.path),
                     .query = httpQueryAdd(httpQueryNewP(), AZURE_QUERY_COMP_STR, AZURE_QUERY_VALUE_BLOCK_LIST_STR),
                     .content = xmlDocumentBuf(blockXml), .tag = true);
             }
@@ -246,7 +246,7 @@ storageWriteAzureClose(THIS_VOID)
             else
             {
                 storageAzureRequestP(
-                    this->storage, HTTP_VERB_PUT_STR, .path = this->interface.name,
+                    this->storage, HTTP_VERB_PUT_STR, .path = pathStr(this->interface.path),
                     httpHeaderAdd(httpHeaderNew(NULL), AZURE_HEADER_BLOB_TYPE_STR, AZURE_HEADER_VALUE_BLOCK_BLOB_STR),
                     .content = this->blockBuffer, .tag = true);
             }
@@ -262,17 +262,17 @@ storageWriteAzureClose(THIS_VOID)
 
 /**********************************************************************************************************************************/
 FN_EXTERN StorageWrite *
-storageWriteAzureNew(StorageAzure *const storage, const String *const name, const uint64_t fileId, const size_t blockSize)
+storageWriteAzureNew(StorageAzure *const storage, const Path *const file, const uint64_t fileId, const size_t blockSize)
 {
     FUNCTION_LOG_BEGIN(logLevelTrace);
         FUNCTION_LOG_PARAM(STORAGE_AZURE, storage);
-        FUNCTION_LOG_PARAM(STRING, name);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(UINT64, fileId);
         FUNCTION_LOG_PARAM(UINT64, blockSize);
     FUNCTION_LOG_END();
 
     ASSERT(storage != NULL);
-    ASSERT(name != NULL);
+    ASSERT(file != NULL);
 
     OBJ_NEW_BEGIN(StorageWriteAzure, .childQty = MEM_CONTEXT_QTY_MAX)
     {
@@ -285,7 +285,7 @@ storageWriteAzureNew(StorageAzure *const storage, const String *const name, cons
             .interface = (StorageWriteInterface)
             {
                 .type = STORAGE_AZURE_TYPE,
-                .name = strDup(name),
+                .path = pathDup(file),
                 .atomic = true,
                 .createPath = true,
                 .syncFile = true,

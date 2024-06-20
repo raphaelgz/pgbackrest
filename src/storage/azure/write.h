@@ -10,6 +10,6 @@ Azure Storage File Write
 /***********************************************************************************************************************************
 Constructors
 ***********************************************************************************************************************************/
-FN_EXTERN StorageWrite *storageWriteAzureNew(StorageAzure *storage, const String *name, uint64_t fileId, size_t blockSize);
+FN_EXTERN StorageWrite *storageWriteAzureNew(StorageAzure *storage, const Path *file, uint64_t fileId, size_t blockSize);
 
 #endif

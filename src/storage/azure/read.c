@@ -50,7 +50,7 @@ storageReadAzureOpen(THIS_VOID)
     MEM_CONTEXT_OBJ_BEGIN(this)
     {
         this->httpResponse = storageAzureRequestP(
-            this->storage, HTTP_VERB_GET_STR, .path = this->interface.name,
+            this->storage, HTTP_VERB_GET_STR, .path = pathStr(this->interface.path),
             .header = httpHeaderPutRange(httpHeaderNew(NULL), this->interface.offset, this->interface.limit),
             .allowMissing = true, .contentIo = true);
     }
@@ -62,7 +62,7 @@ storageReadAzureOpen(THIS_VOID)
     }
     // Else error unless ignore missing
     else if (!this->interface.ignoreMissing)
-        THROW_FMT(FileMissingError, STORAGE_ERROR_READ_MISSING, strZ(this->interface.name));
+        THROW_FMT(FileMissingError, STORAGE_ERROR_READ_MISSING, pathZ(this->interface.path));
 
     FUNCTION_LOG_RETURN(BOOL, result);
 }
@@ -109,19 +109,19 @@ storageReadAzureEof(THIS_VOID)
 /**********************************************************************************************************************************/
 FN_EXTERN StorageRead *
 storageReadAzureNew(
-    StorageAzure *const storage, const String *const name, const bool ignoreMissing, const uint64_t offset,
+    StorageAzure *const storage, const Path *const file, const bool ignoreMissing, const uint64_t offset,
     const Variant *const limit)
 {
     FUNCTION_LOG_BEGIN(logLevelTrace);
         FUNCTION_LOG_PARAM(STORAGE_AZURE, storage);
-        FUNCTION_LOG_PARAM(STRING, name);
+        FUNCTION_LOG_PARAM(PATH, file);
         FUNCTION_LOG_PARAM(BOOL, ignoreMissing);
         FUNCTION_LOG_PARAM(UINT64, offset);
         FUNCTION_LOG_PARAM(VARIANT, limit);
     FUNCTION_LOG_END();
 
     ASSERT(storage != NULL);
-    ASSERT(name != NULL);
+    ASSERT(file != NULL);
 
     OBJ_NEW_BEGIN(StorageReadAzure, .childQty = MEM_CONTEXT_QTY_MAX)
     {
@@ -132,7 +132,7 @@ storageReadAzureNew(
             .interface = (StorageReadInterface)
             {
                 .type = STORAGE_AZURE_TYPE,
-                .name = strDup(name),
+                .path = pathDup(file),
                 .ignoreMissing = ignoreMissing,
                 .offset = offset,
                 .limit = varDup(limit),
