@@ -5,7 +5,6 @@ Path Handler
 #define COMMON_PATH_H
 
 #include "common/type/string.h"
-#include "common/type/stringList.h"
 
 /***********************************************************************************************************************************
 Path object
@@ -65,12 +64,14 @@ FN_EXTERN unsigned int pathGetComponentCount(const Path *this);
 FN_EXTERN Path *pathAppendComponent(Path *this, const String *component);
 FN_EXTERN Path *pathAppendComponentZ(Path *this, const char *component);
 FN_EXTERN Path *pathAppendComponentZN(Path *this, const char *component, size_t length);
+FN_EXTERN FN_PRINTF(2, 3) Path *pathAppendComponentFmt(Path *this, const char *format, ...);
 FN_EXTERN Path *pathGetParent(const Path *this);
 
 /***********************************************************************************************************************************
 Functions
 ***********************************************************************************************************************************/
 FN_EXTERN bool pathEq(const Path *this, const Path *compare);
+FN_EXTERN int pathCmp(const Path *this, const Path *compare);
 FN_EXTERN const String *pathStr(const Path *this);
 FN_EXTERN Path *pathJoin(Path *this, const Path *basePath);
 FN_EXTERN Path *pathMakeAbsolute(Path *this, const Path *basePath);

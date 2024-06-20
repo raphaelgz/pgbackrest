@@ -534,6 +534,8 @@ pathNewZN(const char *path, size_t length)
 
     MEM_CONTEXT_OBJ_BEGIN(result)
     {
+        /* FIXME: do not allow // to be present on the path (we are currently ignoring it) */
+
         size_t consumedSize = pathParseOptionalRoot(result, path, length);
 
         do
@@ -946,6 +948,35 @@ pathAppendComponentZN(Path *const this, const char *const component, const size_
 }
 
 /**********************************************************************************************************************************/
+FN_EXTERN FN_PRINTF(2, 3) Path *
+pathAppendComponentFmt(Path *const this, const char *const format, ...)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(PATH, this);
+        FUNCTION_TEST_PARAM(STRINGZ, format);
+    FUNCTION_TEST_END();
+
+    ASSERT(this != NULL);
+    ASSERT(format != NULL);
+
+    MEM_CONTEXT_TEMP_BEGIN();
+    {
+        char nameBuffer[64];
+        size_t nameSize = sizeof(nameBuffer);
+        va_list argumentList;
+
+        va_start(argumentList, format);
+        char *name = pathInternalFormatHelper(nameBuffer, &nameSize, format, argumentList);
+        va_end(argumentList);
+
+        pathAppendComponentZN(this, name, nameSize);
+    }
+    MEM_CONTEXT_TEMP_END();
+
+    FUNCTION_TEST_RETURN(PATH, this);
+}
+
+/**********************************************************************************************************************************/
 FN_EXTERN Path *
 pathGetParent(const Path *const this)
 {
@@ -978,28 +1009,46 @@ pathEq(const Path *const this, const Path *const compare)
     ASSERT(this != NULL);
     ASSERT(compare != NULL);
 
-    bool result = false;
+    FUNCTION_TEST_RETURN(BOOL, pathCmp(this, compare) == 0);
+}
 
-    if (this->rootType == compare->rootType)
+/**********************************************************************************************************************************/
+FN_EXTERN int
+pathCmp(const Path *const this, const Path *const compare)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(PATH, this);
+        FUNCTION_TEST_PARAM(PATH, compare);
+    FUNCTION_TEST_END();
+
+    ASSERT(this != NULL);
+    ASSERT(compare != NULL);
+
+    int result;
+
+    if (this->rootType < compare->rootType)
+        result = -1;
+    else if (this->rootType > compare->rootType)
+        result = 1;
+    else
     {
-        const unsigned int componentCount = pathGetComponentCount(this);
+        unsigned int thisComponentCount = pathGetComponentCount(this);
+        unsigned int compareComponentCount = pathGetComponentCount(compare);
 
-        if (componentCount == pathGetComponentCount(compare))
+        if (thisComponentCount < compareComponentCount)
+            result = -1;
+        else if (thisComponentCount > compareComponentCount)
+            result = 1;
+        else
         {
-            result = true;
+            result = 0;
 
-            for (unsigned int index = 0; index < componentCount; index++)
-            {
-                if (!strEq(pathGetComponent(this, index), pathGetComponent(compare, index)))
-                {
-                    result = false;
-                    break;
-                }
-            }
+            for (unsigned int idx = 0; result == 0 && idx < thisComponentCount; idx++)
+                result = strCmp(pathGetComponent(this, idx), pathGetComponent(compare, idx));
         }
     }
 
-    FUNCTION_TEST_RETURN(BOOL, result);
+    FUNCTION_TEST_RETURN(INT, result);
 }
 
 /**********************************************************************************************************************************/
