@@ -316,19 +316,6 @@ pathInternalGetName(const Path *const this)
 }
 
 /**********************************************************************************************************************************/
-static String *
-pathInternalGetNameNonConst(Path *const this)
-{
-    FUNCTION_TEST_BEGIN();
-        FUNCTION_TEST_PARAM(PATH, this);
-    FUNCTION_TEST_END();
-
-    ASSERT(this != NULL);
-
-    FUNCTION_TEST_RETURN(STRING, (String *) pathInternalGetName(this));
-}
-
-/**********************************************************************************************************************************/
 static Path *
 pathInternalSetNameZN(Path *const this, const char *const name, const size_t length)
 {
@@ -348,12 +335,15 @@ pathInternalSetNameZN(Path *const this, const char *const name, const size_t len
         THROW_FMT(AssertError, "'%.*s' is not valid name", (int) length, name);
     }
 
-    String *currentName = pathInternalGetNameNonConst(this);
+    if (pathInternalGetName(this) != NULL)
+    {
+        const unsigned int nameIndex = strLstSize(this->components) - 1;
 
-    if (currentName == NULL)
-        pathAppendNonRootComponentZN(this, name, length);
+        strLstRemoveIdx(this->components, nameIndex);
+        strLstInsert(this->components, nameIndex, STR_SIZE(name, length));
+    }
     else
-        strCatZN(strTrunc(currentName), name, length);
+        pathAppendNonRootComponentZN(this, name, length);
 
     FUNCTION_TEST_RETURN(PATH, pathInvalidateCache(this));
 }
