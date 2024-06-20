@@ -497,13 +497,13 @@ protocolRemoteParam(ProtocolStorageType protocolStorageType, unsigned int hostId
         kvPut(
             optionReplace, VARSTRDEF(CFGOPT_CONFIG_INCLUDE_PATH),
             cfgOptionIdxSource(optConfigIncludePath, hostIdx) != cfgSourceDefault ?
-                VARSTR(cfgOptionIdxStr(optConfigIncludePath, hostIdx)) : NULL);
+                VARPATH(cfgOptionIdxPath(optConfigIncludePath, hostIdx)) : NULL);
 
         unsigned int optConfigPath = isRepo ? cfgOptRepoHostConfigPath : cfgOptPgHostConfigPath;
 
         kvPut(
             optionReplace, VARSTRDEF(CFGOPT_CONFIG_PATH),
-            cfgOptionIdxSource(optConfigPath, hostIdx) != cfgSourceDefault ? VARSTR(cfgOptionIdxStr(optConfigPath, hostIdx)) : NULL);
+            cfgOptionIdxSource(optConfigPath, hostIdx) != cfgSourceDefault ? VARPATH(cfgOptionIdxPath(optConfigPath, hostIdx)) : NULL);
 
         // Update/remove repo/pg options that are sent to the remote
         for (ConfigOption optionId = 0; optionId < CFG_OPTION_TOTAL; optionId++)
