@@ -9,15 +9,21 @@ Common Handler for Control Commands
 #include "storage/helper.h"
 
 /**********************************************************************************************************************************/
-FN_EXTERN String *
-lockStopFileName(const String *const stanza)
+FN_EXTERN Path *
+lockStopFilePath(const String *const stanza)
 {
     FUNCTION_TEST_BEGIN();
         FUNCTION_TEST_PARAM(STRING, stanza);
     FUNCTION_TEST_END();
 
-    FUNCTION_TEST_RETURN(
-        STRING, strNewFmt("%s/%s" STOP_FILE_EXT, strZ(cfgOptionStr(cfgOptLockPath)), stanza != NULL ? strZ(stanza) : "all"));
+    Path *const result = pathDup(cfgOptionPath(cfgOptLockPath));
+
+    if (stanza != NULL)
+        pathAppendComponentFmt(result, "%s" STOP_FILE_EXT, strZ(stanza));
+    else
+        pathAppendComponentZ(result, "all" STOP_FILE_EXT);
+
+    FUNCTION_TEST_RETURN(PATH, result);
 }
 
 /**********************************************************************************************************************************/
@@ -31,12 +37,12 @@ lockStopTest(void)
         // Check the current stanza (if any)
         if (cfgOptionTest(cfgOptStanza))
         {
-            if (storageExistsP(storageLocal(), lockStopFileName(cfgOptionStr(cfgOptStanza))))
+            if (storageExistsP(storageLocal(), lockStopFilePath(cfgOptionStr(cfgOptStanza))))
                 THROW_FMT(StopError, "stop file exists for stanza %s", strZ(cfgOptionDisplay(cfgOptStanza)));
         }
 
         // Check all stanzas
-        if (storageExistsP(storageLocal(), lockStopFileName(NULL)))
+        if (storageExistsP(storageLocal(), lockStopFilePath(NULL)))
             THROW(StopError, "stop file exists for all stanzas");
     }
     MEM_CONTEXT_TEMP_END();

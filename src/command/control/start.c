@@ -18,7 +18,7 @@ cmdStart(void)
     MEM_CONTEXT_TEMP_BEGIN()
     {
         // Remove the stop file so processes can run
-        const String *const stopFile = lockStopFileName(cfgOptionStrNull(cfgOptStanza));
+        const Path *const stopFile = lockStopFilePath(cfgOptionStrNull(cfgOptStanza));
 
         // If the stop file exists, then remove it
         if (storageExistsP(storageLocal(), stopFile))

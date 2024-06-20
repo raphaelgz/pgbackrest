@@ -9,6 +9,7 @@ Lock Handler
 /***********************************************************************************************************************************
 Lock data
 ***********************************************************************************************************************************/
+#include "common/path.h"
 #include "common/type/variant.h"
 
 // Lock data
@@ -32,7 +33,7 @@ Constants
 Functions
 ***********************************************************************************************************************************/
 // Initialize lock module
-FN_EXTERN void lockInit(const String *path, const String *execId);
+FN_EXTERN void lockInit(const Path *directory, const String *execId);
 
 // Acquire a lock
 typedef struct LockAcquireParam

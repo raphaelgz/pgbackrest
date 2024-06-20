@@ -39,7 +39,7 @@ cmdStanzaDelete(void)
             if (archiveNotEmpty || backupNotEmpty)
             {
                 // If the stop file does not exist, then error. This check is required even when --force is issued.
-                if (!storageExistsP(storageLocal(), lockStopFileName(cfgOptionStr(cfgOptStanza))))
+                if (!storageExistsP(storageLocal(), lockStopFilePath(cfgOptionStr(cfgOptStanza))))
                 {
                     THROW_FMT(
                         FileMissingError, "stop file does not exist for stanza '%s'\n"
@@ -83,7 +83,7 @@ cmdStanzaDelete(void)
             // Remove the stop file - this will not error if the stop file does not exist. If the stanza directories existed but
             // nothing was in them, then no pgbackrest commands can be in progress without the info files so a stop is technically
             // not necessary
-            storageRemoveP(storageLocalWrite(), lockStopFileName(cfgOptionStr(cfgOptStanza)));
+            storageRemoveP(storageLocalWrite(), lockStopFilePath(cfgOptionStr(cfgOptStanza)));
         }
     }
     MEM_CONTEXT_TEMP_END();

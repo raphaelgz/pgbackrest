@@ -43,7 +43,7 @@ Mem context and local variables
 ***********************************************************************************************************************************/
 typedef struct LockFile
 {
-    String *name;                                                   // Name of lock file
+    Path *path;                                                   // Lock file path
     int fd;                                                         // File descriptor for lock file
     bool written;                                                   // Has the lock file been written?
 } LockFile;
@@ -51,18 +51,25 @@ typedef struct LockFile
 static struct LockLocal
 {
     MemContext *memContext;                                         // Mem context for locks
-    const String *path;                                             // Lock path
+    const Path *directory;                                          // Lock directory
     const String *execId;                                           // Process exec id
     List *lockList;                                                 // List of locks held
     const Storage *storage;                                         // Storage object for lock path
 } lockLocal;
 
 /**********************************************************************************************************************************/
+static int
+lockListPathComparator(const void *const item1, const void *const item2)
+{
+    return pathCmp(((const LockFile *) item1)->path, ((const LockFile *) item2)->path);
+}
+
+/**********************************************************************************************************************************/
 FN_EXTERN void
-lockInit(const String *const path, const String *const execId)
+lockInit(const Path *const directory, const String *const execId)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
-        FUNCTION_LOG_PARAM(STRING, path);
+        FUNCTION_LOG_PARAM(PATH, directory);
         FUNCTION_LOG_PARAM(STRING, execId);
     FUNCTION_LOG_END();
 
@@ -74,10 +81,10 @@ lockInit(const String *const path, const String *const execId)
         MEM_CONTEXT_NEW_BEGIN(Lock, .childQty = MEM_CONTEXT_QTY_MAX)
         {
             lockLocal.memContext = MEM_CONTEXT_NEW();
-            lockLocal.path = strDup(path);
+            lockLocal.directory = pathDup(directory);
             lockLocal.execId = strDup(execId);
-            lockLocal.lockList = lstNewP(sizeof(LockFile), .comparator = lstComparatorStr);
-            lockLocal.storage = storagePosixNewP(lockLocal.path, .write = true);
+            lockLocal.lockList = lstNewP(sizeof(LockFile), .comparator = lockListPathComparator);
+            lockLocal.storage = storagePosixNewP(lockLocal.directory, .write = true);
         }
         MEM_CONTEXT_NEW_END();
     }
@@ -94,16 +101,16 @@ Read contents of lock file
 
 // Helper to read data
 static LockData
-lockReadData(const String *const lockFileName, const int fd)
+lockReadData(const Path *const lockFilePath, const int fd)
 {
     FUNCTION_LOG_BEGIN(logLevelTrace);
-        FUNCTION_LOG_PARAM(STRING, lockFileName);
+        FUNCTION_LOG_PARAM(PATH, lockFilePath);
         FUNCTION_LOG_PARAM(INT, fd);
     FUNCTION_LOG_END();
 
     FUNCTION_AUDIT_STRUCT();
 
-    ASSERT(lockFileName != NULL);
+    ASSERT(lockFilePath != NULL);
     ASSERT(fd != -1);
 
     LockData result = {0};
@@ -116,7 +123,7 @@ lockReadData(const String *const lockFileName, const int fd)
             Buffer *const buffer = bufNew(LOCK_BUFFER_SIZE);
             IoWrite *const write = ioBufferWriteNewOpen(buffer);
 
-            ioCopyP(ioFdReadNewOpen(lockFileName, fd, 0), write);
+            ioCopyP(ioFdReadNewOpen(pathStr(lockFilePath), fd, 0), write);
             ioWriteClose(write);
 
             JsonRead *const json = jsonReadNew(strNewBuf(buffer));
@@ -143,7 +150,7 @@ lockReadData(const String *const lockFileName, const int fd)
     }
     CATCH_ANY()
     {
-        THROWP_FMT(errorType(), "unable to read lock file '%s': %s", strZ(lockFileName), errorMessage());
+        THROWP_FMT(errorType(), "unable to read lock file '%s': %s", pathZ(lockFilePath), errorMessage());
     }
     TRY_END();
 
@@ -164,12 +171,13 @@ lockAcquire(const String *const lockFileName, const LockAcquireParam param)
 
     bool result = false;
 
-    if (lstFind(lockLocal.lockList, &lockFileName) != NULL)
-        THROW_FMT(AssertError, "lock on file '%s' already held", strZ(lockFileName));
-
     MEM_CONTEXT_TEMP_BEGIN()
     {
-        const String *const lockFilePath = storagePathP(lockLocal.storage, lockFileName);
+        const Path *const lockFilePath = storagePathP(lockLocal.storage, pathNew(lockFileName));
+
+        if (lstFind(lockLocal.lockList, &lockFilePath) != NULL)
+            THROW_FMT(AssertError, "lock on file '%s' already held", pathZ(lockFilePath));
+
         bool retry;
         int errNo = 0;
         int fd = -1;
@@ -180,7 +188,7 @@ lockAcquire(const String *const lockFileName, const LockAcquireParam param)
             retry = false;
 
             // Attempt to open the file
-            if ((fd = open(strZ(lockFilePath), O_RDWR | O_CREAT, STORAGE_MODE_FILE_DEFAULT)) == -1)
+            if ((fd = open(pathZ(lockFilePath), O_RDWR | O_CREAT, STORAGE_MODE_FILE_DEFAULT)) == -1)
             {
                 // Save the error for reporting outside the loop
                 errNo = errno;
@@ -188,7 +196,7 @@ lockAcquire(const String *const lockFileName, const LockAcquireParam param)
                 // If the path does not exist then create it
                 if (errNo == ENOENT)
                 {
-                    storagePathCreateP(storagePosixNewP(FSLASH_STR, .write = true), strPath(lockFilePath));
+                    storagePathCreateP(storagePosixNewStrP(FSLASH_STR, .write = true), pathGetParent(lockFilePath));
                     retry = true;
                 }
             }
@@ -205,7 +213,7 @@ lockAcquire(const String *const lockFileName, const LockAcquireParam param)
 
                     TRY_BEGIN()
                     {
-                        execId = lockReadData(lockFileName, fd).execId;
+                        execId = lockReadData(lockFilePath, fd).execId;
                     }
                     CATCH_ANY()
                     {
@@ -248,11 +256,11 @@ lockAcquire(const String *const lockFileName, const LockAcquireParam param)
 
                     errorHint = strNewFmt(
                         "\nHINT: does '%s:%s' running " PROJECT_NAME " have permissions on the '%s' file?", strZ(userName()),
-                        strZ(groupName()), strZ(lockFilePath));
+                        strZ(groupName()), pathZ(lockFilePath));
                 }
 
                 THROW_FMT(
-                    LockAcquireError, "unable to acquire lock on file '%s': %s%s", strZ(lockFilePath), strerror(errNo),
+                    LockAcquireError, "unable to acquire lock on file '%s': %s%s", pathZ(lockFilePath), strerror(errNo),
                     errorHint == NULL ? "" : strZ(errorHint));
             }
         }
@@ -261,7 +269,7 @@ lockAcquire(const String *const lockFileName, const LockAcquireParam param)
         {
             MEM_CONTEXT_OBJ_BEGIN(lockLocal.lockList)
             {
-                lstAdd(lockLocal.lockList, &(LockFile){.name = strDup(lockFileName), .fd = fd});
+                lstAdd(lockLocal.lockList, &(LockFile){.path = pathDup(lockFilePath), .fd = fd});
             }
             MEM_CONTEXT_OBJ_END();
 
@@ -296,12 +304,12 @@ lockRead(const String *const lockFileName, const LockReadParam param)
 
     MEM_CONTEXT_TEMP_BEGIN()
     {
-        const String *const lockFilePath = storagePathP(lockLocal.storage, lockFileName);
+        const Path *const lockFilePath = storagePathP(lockLocal.storage, pathNew(lockFileName));
 
         // If we cannot open the lock file for any reason then warn
         int fd = -1;
 
-        if ((fd = open(strZ(lockFilePath), O_RDONLY, 0)) == -1)
+        if ((fd = open(pathZ(lockFilePath), O_RDONLY, 0)) == -1)
         {
             result.status = lockReadStatusMissing;
         }
@@ -332,7 +340,7 @@ lockRead(const String *const lockFileName, const LockReadParam param)
 
             // Remove lock file if requested but do not report failures
             if (param.remove)
-                unlink(strZ(lockFilePath));
+                unlink(pathZ(lockFilePath));
 
             // Close after unlinking to prevent a race condition where another process creates the file as we remove it
             close(fd);
@@ -377,26 +385,26 @@ lockWrite(const String *const lockFileName, const LockWriteParam param)
 
         jsonWriteObjectEnd(json);
 
+        const Path *const lockFilePath = storagePathP(lockLocal.storage, pathNew(lockFileName));
+
         // Write to lock file
-        LockFile *const lockFile = lstFind(lockLocal.lockList, &lockFileName);
+        LockFile *const lockFile = lstFind(lockLocal.lockList, &lockFilePath);
 
         if (lockFile == NULL)
-            THROW_FMT(AssertError, "lock file '%s' not found", strZ(lockFileName));
-
-        const String *const lockFilePath = storagePathP(lockLocal.storage, lockFileName);
+            THROW_FMT(AssertError, "lock file '%s' not found", pathZ(lockFilePath));
 
         if (lockFile->written)
         {
             // Seek to beginning of lock file
             THROW_ON_SYS_ERROR_FMT(
-                lseek(lockFile->fd, 0, SEEK_SET) == -1, FileOpenError, STORAGE_ERROR_READ_SEEK, (uint64_t)0, strZ(lockFilePath));
+                lseek(lockFile->fd, 0, SEEK_SET) == -1, FileOpenError, STORAGE_ERROR_READ_SEEK, (uint64_t)0, pathZ(lockFilePath));
 
             // In case the current write is shorter than before
-            THROW_ON_SYS_ERROR_FMT(ftruncate(lockFile->fd, 0) == -1, FileWriteError, "unable to truncate '%s'", strZ(lockFilePath));
+            THROW_ON_SYS_ERROR_FMT(ftruncate(lockFile->fd, 0) == -1, FileWriteError, "unable to truncate '%s'", pathZ(lockFilePath));
         }
 
         // Write lock file data
-        IoWrite *const write = ioFdWriteNewOpen(lockFilePath, lockFile->fd, 0);
+        IoWrite *const write = ioFdWriteNewOpen(pathStr(lockFilePath), lockFile->fd, 0);
 
         ioCopyP(ioBufferReadNewOpen(BUFSTR(jsonWriteResult(json))), write);
         ioWriteClose(write);
@@ -438,11 +446,11 @@ lockRelease(const LockReleaseParam param)
             // Remove lock file if this lock was not acquired by matching execId
             if (lockFile->fd != LOCK_ON_EXEC_ID)
             {
-                storageRemoveP(lockLocal.storage, lockFile->name);
+                storageRemoveP(lockLocal.storage, lockFile->path);
                 close(lockFile->fd);
             }
 
-            strFree(lockFile->name);
+            pathFree(lockFile->path);
             lstRemoveIdx(lockLocal.lockList, 0);
         }
 

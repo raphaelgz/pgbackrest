@@ -27,13 +27,13 @@ cmdStop(void)
 
     MEM_CONTEXT_TEMP_BEGIN()
     {
-        const String *const stopFile = lockStopFileName(cfgOptionStrNull(cfgOptStanza));
+        const Path *const stopFile = lockStopFilePath(cfgOptionStrNull(cfgOptStanza));
 
         // If the stop file does not already exist, then create it
         if (!storageExistsP(storageLocal(), stopFile))
         {
             // Create the lock path (ignore if already created)
-            storagePathCreateP(storageLocalWrite(), strPath(stopFile), .mode = 0770);
+            storagePathCreateP(storageLocalWrite(), pathGetParent(stopFile), .mode = 0770);
 
             // Create the stop file with without truncating an existing file
             IoWrite *const stopWrite = storageWriteIo(
@@ -44,7 +44,7 @@ cmdStop(void)
             // If --force was specified then send term signals to running processes
             if (cfgOptionBool(cfgOptForce))
             {
-                const String *const lockPath = cfgOptionStr(cfgOptLockPath);
+                const Path *const lockPath = cfgOptionPath(cfgOptLockPath);
                 const String *const stanzaPrefix =
                     cfgOptionTest(cfgOptStanza) ? strNewFmt("%s-", strZ(cfgOptionStr(cfgOptStanza))) : NULL;
                 const StringList *const lockPathFileList = strLstSort(
@@ -65,7 +65,7 @@ cmdStop(void)
                     // If we cannot read the lock file for any reason then warn and continue to next file
                     if (lockResult.status != lockReadStatusValid)
                     {
-                        LOG_WARN_FMT("unable to read lock file %s/%s", strZ(lockPath), strZ(lockFile));
+                        LOG_WARN_FMT("unable to read lock file %s/%s", pathZ(lockPath), strZ(lockFile));
                         continue;
                     }
 

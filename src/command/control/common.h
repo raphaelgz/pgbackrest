@@ -4,6 +4,7 @@ Common Handler for Control Commands
 #ifndef COMMAND_CONTROL_COMMON_H
 #define COMMAND_CONTROL_COMMON_H
 
+#include "common/path.h"
 #include "common/type/string.h"
 
 /***********************************************************************************************************************************
@@ -14,8 +15,8 @@ Constants
 /***********************************************************************************************************************************
 Functions
 ***********************************************************************************************************************************/
-// Create the stop filename
-FN_EXTERN String *lockStopFileName(const String *stanza);
+// Create the stop file path
+FN_EXTERN Path *lockStopFilePath(const String *stanza);
 
 // Test for the existence of a stop file
 FN_EXTERN void lockStopTest(void);

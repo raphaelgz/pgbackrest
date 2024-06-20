@@ -568,7 +568,7 @@ cfgLoad(const unsigned int argListSize, const char *argList[])
 
             // Initialize the lock module
             if (cfgOptionTest(cfgOptLockPath))
-                lockInit(cfgOptionStr(cfgOptLockPath), cfgOptionStr(cfgOptExecId));
+                lockInit(cfgOptionPath(cfgOptLockPath), cfgOptionStr(cfgOptExecId));
 
             // Acquire a lock if this command requires a lock
             if (cfgLockType() != lockTypeNone && !cfgCommandHelp() && cfgLockRequired())
