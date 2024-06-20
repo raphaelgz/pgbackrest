@@ -1942,6 +1942,10 @@ jsonWriteVarRecurse(JsonWrite *const this, const Variant *const value)
                     break;
                 }
 
+                case varTypePath:
+                    jsonWriteStr(this, pathStr(varPath(value)));
+                    break;
+
                 case varTypeString:
                 {
                     jsonWriteStr(this, varStr(value));

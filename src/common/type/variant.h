@@ -37,12 +37,14 @@ typedef enum
     varTypeInt,
     varTypeInt64,
     varTypeKeyValue,
+    varTypePath,
     varTypeString,
     varTypeUInt,
     varTypeUInt64,
     varTypeVariantList,
 } VariantType;
 
+#include "common/path.h"
 #include "common/type/keyValue.h"
 #include "common/type/string.h"
 #include "common/type/variantList.h"
@@ -58,6 +60,7 @@ FN_EXTERN Variant *varNewInt64(int64_t data);
 // the Variant.
 FN_EXTERN Variant *varNewKv(KeyValue *data);
 
+FN_EXTERN Variant *varNewPath(const Path *data);
 FN_EXTERN Variant *varNewStr(const String *data);
 FN_EXTERN Variant *varNewStrZ(const char *data);
 FN_EXTERN Variant *varNewUInt(unsigned int data);
@@ -95,6 +98,12 @@ typedef struct VariantInt64Pub
     int64_t data;                                                   // 64-bit signed integer data
 } VariantInt64Pub;
 
+typedef struct VariantPathPub
+{
+    VARIANT_COMMON
+    Path *data;                                                     // Path data
+} VariantPathPub;
+
 typedef struct VariantStringPub
 {
     VARIANT_COMMON
@@ -123,6 +132,9 @@ FN_EXTERN int64_t varInt64(const Variant *this);
 FN_EXTERN int64_t varInt64Force(const Variant *this);
 
 FN_EXTERN KeyValue *varKv(const Variant *this);
+
+FN_EXTERN const Path *varPath(const Variant *this);
+FN_EXTERN Path *varPathForce(const Variant *this);
 
 FN_EXTERN const String *varStr(const Variant *this);
 FN_EXTERN String *varStrForce(const Variant *this);

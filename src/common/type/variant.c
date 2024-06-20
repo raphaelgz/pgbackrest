@@ -55,6 +55,11 @@ typedef struct VariantKeyValue
     KeyValue *data;                                                 // KeyValue data
 } VariantKeyValue;
 
+typedef struct VariantPath
+{
+    VariantPathPub pub;                                             // Publicly accessible variables
+} VariantPath;
+
 typedef struct VariantString
 {
     VariantStringPub pub;                                           // Publicly accessible variables
@@ -85,6 +90,7 @@ static const char *const variantTypeName[] =
     "int",                                                          // varTypeInt
     "int64",                                                        // varTypeInt64
     "KeyValue",                                                     // varTypeKeyValue
+    "Path",                                                         // varTypePath
     "String",                                                       // varTypeString
     "unsigned int",                                                 // varTypeUInt
     "uint64",                                                       // varTypeUInt64
@@ -119,6 +125,10 @@ varDup(const Variant *const this)
 
             case varTypeKeyValue:
                 result = varNewKv(kvDup(varKv(this)));
+                break;
+
+            case varTypePath:
+                result = varNewPath(varPath(this));
                 break;
 
             case varTypeString:
@@ -171,6 +181,10 @@ varEq(const Variant *const this1, const Variant *const this2)
 
                 case varTypeInt64:
                     result = varInt64(this1) == varInt64(this2);
+                    break;
+
+                case varTypePath:
+                    result = pathEq(varPath(this1), varPath(this2));
                     break;
 
                 case varTypeString:
@@ -297,7 +311,7 @@ varBoolForce(const Variant *const this)
             break;
 
         default:
-            ASSERT(varType(this) == varTypeKeyValue || varType(this) == varTypeVariantList);
+            ASSERT(varType(this) == varTypeKeyValue || varType(this) == varTypePath || varType(this) == varTypeVariantList);
             THROW_FMT(AssertError, "unable to force %s to %s", variantTypeName[varType(this)], variantTypeName[varTypeBool]);
     }
 
@@ -410,7 +424,7 @@ varIntForce(const Variant *const this)
         }
 
         default:
-            ASSERT(varType(this) == varTypeKeyValue || varType(this) == varTypeVariantList);
+            ASSERT(varType(this) == varTypeKeyValue || varType(this) == varTypePath || varType(this) == varTypeVariantList);
             THROW_FMT(AssertError, "unable to force %s to %s", variantTypeName[varType(this)], variantTypeName[varTypeInt]);
     }
 
@@ -507,7 +521,7 @@ varInt64Force(const Variant *const this)
         }
 
         default:
-            ASSERT(varType(this) == varTypeKeyValue || varType(this) == varTypeVariantList);
+            ASSERT(varType(this) == varTypeKeyValue || varType(this) == varTypePath || varType(this) == varTypeVariantList);
             THROW_FMT(AssertError, "unable to force %s to %s", variantTypeName[varType(this)], variantTypeName[varTypeInt64]);
     }
 
@@ -629,7 +643,7 @@ varUIntForce(const Variant *const this)
             break;
 
         default:
-            ASSERT(varType(this) == varTypeKeyValue || varType(this) == varTypeVariantList);
+            ASSERT(varType(this) == varTypeKeyValue || varType(this) == varTypePath || varType(this) == varTypeVariantList);
             THROW_FMT(AssertError, "unable to force %s to %s", variantTypeName[varType(this)], variantTypeName[varTypeUInt]);
     }
 
@@ -738,7 +752,7 @@ varUInt64Force(const Variant *const this)
             break;
 
         default:
-            ASSERT(varType(this) == varTypeKeyValue || varType(this) == varTypeVariantList);
+            ASSERT(varType(this) == varTypeKeyValue || varType(this) == varTypePath || varType(this) == varTypeVariantList);
             THROW_FMT(AssertError, "unable to force %s to %s", variantTypeName[varType(this)], variantTypeName[varTypeUInt64]);
     }
 
@@ -785,6 +799,81 @@ varKv(const Variant *const this)
     }
 
     FUNCTION_TEST_RETURN(KEY_VALUE, result);
+}
+
+/**********************************************************************************************************************************/
+FN_EXTERN Variant *
+varNewPath(const Path *const data)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(PATH, data);
+    FUNCTION_TEST_END();
+
+    ASSERT(data != NULL);
+
+    OBJ_NEW_BEGIN(VariantPath, .childQty = 1);
+    {
+        *this = (VariantPath)
+        {
+            .pub =
+            {
+                .type = varTypePath,
+                .data = pathDup(data),
+            },
+        };
+    }
+    OBJ_NEW_END();
+
+    FUNCTION_TEST_RETURN(VARIANT, (Variant *)OBJ_NAME(this, Variant::VariantPath));
+}
+
+FN_EXTERN const Path *
+varPath(const Variant *const this)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(VARIANT, this);
+    FUNCTION_TEST_END();
+
+    Path *result = NULL;
+
+    if (this != NULL)
+    {
+        ASSERT(varType(this) == varTypePath);
+        result = ((VariantPath *)this)->pub.data;
+    }
+
+    FUNCTION_TEST_RETURN(PATH, result);
+}
+
+FN_EXTERN Path *
+varPathForce(const Variant *const this)
+{
+    FUNCTION_TEST_BEGIN();
+        FUNCTION_TEST_PARAM(VARIANT, this);
+    FUNCTION_TEST_END();
+
+    ASSERT(this != NULL);
+
+    Path *result = NULL;
+
+    switch (varType(this)) {
+        case varTypeString:
+            result = pathNew(varStr(this));
+            break;
+
+        case varTypePath:
+            result = pathDup(varPath(this));
+            break;
+
+        default:
+            ASSERT(varType(this) == varTypeInt || varType(this) == varTypeUInt || varType(this) == varTypeBool ||
+                   varType(this) == varTypeUInt64 || varType(this) == varTypeInt64 || varType(this) == varTypeKeyValue ||
+                   varType(this) == varTypeVariantList);
+
+            THROW_FMT(FormatError, "unable to force %s to %s", variantTypeName[varType(this)], variantTypeName[varTypePath]);
+    }
+
+    FUNCTION_TEST_RETURN(PATH, result);
 }
 
 /**********************************************************************************************************************************/
@@ -915,6 +1004,10 @@ varStrForce(const Variant *const this)
             break;
         }
 
+        case varTypePath:
+            result = strDup(pathStr(varPath(this)));
+            break;
+
         case varTypeString:
             result = strDup(varStr(this));
             break;
@@ -993,6 +1086,11 @@ varToLog(const Variant *const this, StringStatic *const debugLog)
 {
     switch (varType(this))
     {
+        case varTypePath:
+            strStcResultSizeInc(
+                debugLog, FUNCTION_LOG_PATH_FORMAT(varPath(this), strStcRemains(debugLog), strStcRemainsSize(debugLog)));
+            break;
+
         case varTypeString:
             strStcResultSizeInc(
                 debugLog,
