@@ -826,18 +826,13 @@ strReplaceAtZN(String *const this, const size_t start, const size_t size, const 
     memcpy(this->pub.buffer + prefixSize, replace, replaceSize);
 
     // Update the size
-    if (middleSize < replaceSize)
-    {
-        this->pub.size += replaceSize - middleSize;
-        this->pub.extra -= replaceSize - middleSize;
-    }
-    else
-    {
-        this->pub.size -= middleSize - replaceSize;
-        this->pub.extra += middleSize - replaceSize;
-    }
+    this->pub.size -= middleSize;
+    this->pub.size += replaceSize;
 
-    this->pub.buffer[this->pub.size] = 0;
+    this->pub.extra -= replaceSize;
+    this->pub.extra += middleSize;
+
+    this->pub.buffer[this->pub.size] = '\0';
 
     FUNCTION_TEST_RETURN(STRING, this);
 }
